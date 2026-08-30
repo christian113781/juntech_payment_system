@@ -44,6 +44,8 @@ window.appShell = function appShell() {
     mobileOpen: false,
     notifOpen: false,
     profileOpen: false,
+    toast: { show: false, msg: '' },
+    toastTimer: null,
 
     get isDark() {
       return document.documentElement.classList.contains('dark');
@@ -64,6 +66,15 @@ window.appShell = function appShell() {
 
     closeMobileSidebar() {
       this.mobileOpen = false;
+    },
+
+    showToast(msg) {
+      this.toast.msg = msg;
+      this.toast.show = true;
+      clearTimeout(this.toastTimer);
+      this.toastTimer = setTimeout(() => {
+        this.toast.show = false;
+      }, 3500);
     },
   };
 };

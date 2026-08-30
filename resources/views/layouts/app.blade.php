@@ -1,6 +1,6 @@
 {{-- resources/views/components/layouts/app.blade.php --}}
 <!DOCTYPE html>
-<html lang="en" x-data="appShell()" :class="{ dark: isDark }">
+<html lang="en" x-data="appShell()" :class="{ dark: isDark }" @toast.window="showToast($event.detail.message)" x-init="@if (session('success')) setTimeout(() => showToast(@js(session('success'))), 50); @endif">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,9 +13,7 @@
   <div id="sidebar-overlay" class="fixed inset-0 bg-gray-900/50 z-20 lg:hidden"
        x-show="mobileOpen" x-transition.opacity @click="closeMobileSidebar()" style="display:none"></div>
 
-  <div id="toast" role="status" aria-live="polite" :class="{ show: toast.show }">
-    <span x-text="toast.msg"></span>
-  </div>
+
 
   <div class="flex min-h-[100dvh]">
     <x-sidebar />
@@ -29,6 +27,8 @@
       </footer>
     </div>
   </div>
+
+<x-toast />
 
   @livewireScripts
 </body>

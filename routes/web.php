@@ -3,9 +3,19 @@
 use Illuminate\Support\Facades\Route;
 
 use App\Livewire\Admin\Dashboard\Index as AdminDashboard;
+use App\Livewire\Admin\Area\Index as AreasIndex;
 
 // Inventory Management
 use App\Livewire\Admin\Product\Index as ProductsIndex;
+use App\Livewire\Admin\Product\Create as ProductCreate;
+use App\Livewire\Admin\Product\Edit as ProductEdit;
+
+
+// Omada Cloud
+use App\Livewire\Admin\Omada\Index as OmadaIndex;
+
+
+
 use App\Livewire\Admin\Category\Index as CategoriesIndex;
 use App\Livewire\Admin\StockMovement\Index as StockMovementsIndex;
 
@@ -22,9 +32,17 @@ Route::view('profile', 'profile')
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', AdminDashboard::class)->name('dashboard');
 
+    Route::get('/areas', AreasIndex::class)->name('areas.index');
+
     Route::get('/products', ProductsIndex::class)->name('products.index');
+    Route::get('/products/create', ProductCreate::class)->name('products.create');
+    Route::get('/products/{product}/edit', ProductEdit::class)->name('products.edit');
     Route::get('/categories', CategoriesIndex::class)->name('categories.index');
     Route::get('/stock-movements', StockMovementsIndex::class)->name('stock-movements.index');
+
+
+
+    Route::get('/omada', OmadaIndex::class)->name('omada.index');
 });
 
 Route::view('/pos', 'temp.placeholder', ['title' => 'Point of Sale'])->name('pos');
