@@ -174,11 +174,11 @@
                                     </div>
                                     <div class="min-w-0">
                                         <p class="font-medium text-gray-800 dark:text-gray-100 truncate">{{ $product['name'] }}</p>
-                                        <p class="text-[11px] text-gray-400 truncate">{{ $product['brand'] }}</p>
+                                        <p class="mt-1 text-[11px] text-gray-400 truncate">{{ $product['sku'] }}</p>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-5 py-3 text-gray-500 dark:text-gray-400 text-xs">{{ $product['sku'] }}</td>
+                            <td class="px-5 py-3 text-gray-500 dark:text-gray-400 text-xs">{{ $product['brand'] }}</td>
                             <td class="px-5 py-3 text-gray-500 dark:text-gray-400">{{ $product['category'] }}</td>
                             <td class="px-5 py-3 text-gray-500 dark:text-gray-400">{{ $product['unit'] }}</td>
                             <td class="px-5 py-3 text-end text-gray-500 dark:text-gray-400">{{ $product['reorder_level'] }}</td>
@@ -191,15 +191,15 @@
                             </td>
                             <td class="px-5 py-3 text-end">
                                 <div class="flex items-center justify-end gap-1">
-                                    <button type="button" title="Stock in" class="p-2 rounded-lg text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors" aria-label="Stock in {{ $product['name'] }}">
+                                    <button type="button" class="p-2 rounded-lg text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors" aria-label="Stock in {{ $product['name'] }}">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7.5L12 3l8 4.5v9L12 21l-8-4.5v-9zm8 4.5l8-4.5M12 12v9M4 7.5l8 4.5"/>
                                         </svg>
                                     </button>
-                                    <button type="button" title="Edit" class="p-2 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" aria-label="Edit {{ $product['name'] }}">
+                                    <button type="button" class="p-2 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" aria-label="Edit {{ $product['name'] }}">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                     </button>
-                                    <button type="button" title="Delete" class="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" aria-label="Delete {{ $product['name'] }}">
+                                    <button type="button" class="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" aria-label="Delete {{ $product['name'] }}">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9.5 3h5a1 1 0 011 1v3h-7V4a1 1 0 011-1z"/></svg>
                                     </button>
                                 </div>
