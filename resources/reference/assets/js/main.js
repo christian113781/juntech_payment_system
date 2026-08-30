@@ -3,70 +3,16 @@
    ════════════════════════════════════════════════════════════════ */
 
 /* ── Dark mode ──────────────────────────────────────────────────
-   Persisted in localStorage. Applied as a class on <html>. ───── */
-function updateDarkToggleButtons() {
-  const isDark = document.documentElement.classList.contains('dark');
-  document.querySelectorAll('.dark-toggle').forEach((button) => {
-    const nextLabel = isDark ? 'Switch to light mode' : 'Switch to dark mode';
-    button.setAttribute('aria-label', nextLabel);
-    button.setAttribute('title', nextLabel);
-  });
-}
-
-function setDarkMode(enabled) {
-  document.documentElement.classList.toggle('dark', enabled);
-  localStorage.setItem('sm-dark', enabled ? 'dark' : 'light');
-  updateDarkToggleButtons();
-}
-
+   Persisted in localStorage. Applied as a class on <html>.
+   Call toggleDark() from any page. ─────────────────────────── */
 function initDarkMode() {
   const saved = localStorage.getItem('sm-dark');
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const shouldUseDark = saved === 'dark' || (saved === null && prefersDark);
-  setDarkMode(shouldUseDark);
+  if (saved === 'dark' || (saved === null && prefersDark)) {
+    document.documentElement.classList.add('dark');
+  }
 }
-
-function bindDarkModeToggle() {
-  document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const nextState = !document.documentElement.classList.contains('dark');
-      setDarkMode(nextState);
-    });
-  });
-}
-
 initDarkMode();
-bindDarkModeToggle();
-
-window.appShell = function appShell() {
-  return {
-    sidebarCollapsed: false,
-    mobileOpen: false,
-    notifOpen: false,
-    profileOpen: false,
-
-    get isDark() {
-      return document.documentElement.classList.contains('dark');
-    },
-
-    setDarkMode(value) {
-      document.documentElement.classList.toggle('dark', value);
-      localStorage.setItem('sm-dark', value ? 'dark' : 'light');
-    },
-
-    toggleDark() {
-      this.setDarkMode(!this.isDark);
-    },
-
-    openMobileSidebar() {
-      this.mobileOpen = true;
-    },
-
-    closeMobileSidebar() {
-      this.mobileOpen = false;
-    },
-  };
-};
 
 /* ── Sidebar nav links ──────────────────────────────────────── */
 function getNavSections(activeHref) {

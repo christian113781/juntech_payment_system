@@ -1,13 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* ══════════════════════════════════════════
-   StockMaster — custom styles
-   ══════════════════════════════════════════ */
-
 /* ══════════════════════════════════════════════
    StockMaster Inventory Pro — stylesheet
    ══════════════════════════════════════════════ */
@@ -15,28 +5,7 @@
 /* ── reset ──────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; height: 100%; }
-body, .font-sans { font-family: 'Poppins', sans-serif; }
-body { background: #f8f9fc; overflow-x: hidden; min-height: 100%; }
-
-input[type="search"] {
-  -webkit-appearance: none;
-  appearance: none;
-}
-input[type="search"]::-webkit-search-cancel-button {
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.header-search:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
-}
-
-.header-icon-btn:focus,
-.header-icon-btn:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
-}
+body { font-family: 'Poppins', sans-serif; background: #f8f9fc; overflow-x: hidden; min-height: 100%; }
 
 /* ── skip link ──────────────────────────────── */
 .skip-link {
@@ -46,6 +15,7 @@ input[type="search"]::-webkit-search-cancel-button {
   transition: inset-block-start .15s; text-decoration: none;
 }
 .skip-link:focus { inset-block-start: 1rem; }
+:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; border-radius: 4px; }
 
 /* ── sidebar ─────────────────────────────────── */
 #sidebar {
@@ -467,3 +437,15 @@ input[type="search"]::-webkit-search-cancel-button {
 .dark .ageing-bar-wrap { background: transparent; }
 .dark .po-legend-label { color: #94a3b8; }
 .dark .po-legend-count { color: #e2e8f0; }
+
+
+input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+}

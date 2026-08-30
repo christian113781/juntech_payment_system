@@ -13,6 +13,29 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    public function initials(): string
+    {
+        $name = trim((string) $this->name);
+
+        if ($name === '') {
+            return 'JD';
+        }
+
+        $parts = preg_split('/\s+/', $name, -1, PREG_SPLIT_NO_EMPTY);
+
+        if ($parts === false || count($parts) === 0) {
+            return 'JD';
+        }
+
+        $initials = strtoupper(substr($parts[0], 0, 1));
+
+        if (count($parts) > 1) {
+            $initials .= strtoupper(substr($parts[count($parts) - 1], 0, 1));
+        }
+
+        return substr($initials, 0, 2);
+    }
+
     /**
      * The attributes that are mass assignable.
      *
