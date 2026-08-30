@@ -114,6 +114,13 @@ input[type="search"]::-webkit-search-cancel-button {
 /* ── table ───────────────────────────────────── */
 .tbl-wrap { overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
 
+/* ── mobile accordion rows (details/summary) ─── */
+summary { list-style: none; cursor: pointer; }
+summary::-webkit-details-marker { display: none; }
+details > summary:hover { background: #f9fafb; }
+details[open] > summary { background: #f9fafb; }
+details + details { border-top: 1px solid #f3f4f6; }
+
 /* ── stat card ───────────────────────────────── */
 .stat-card { transition: transform .2s, box-shadow .2s; }
 @media (hover: hover) and (pointer: fine) {
@@ -297,6 +304,11 @@ input[type="search"]::-webkit-search-cancel-button {
 /* ── table rows ── */
 .dark tbody tr:hover { background: rgba(255,255,255,.03) !important; }
 .dark thead tr       { border-color: #2d3148; }
+
+/* ── mobile accordion rows (details/summary) ── */
+.dark details > summary:hover,
+.dark details[open] > summary { background: rgba(255,255,255,.04); }
+.dark details + details { border-color: #2a2e45; }
 
 /* ── form fields ── */
 .dark .field {

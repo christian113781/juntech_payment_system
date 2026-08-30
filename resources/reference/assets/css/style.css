@@ -439,13 +439,4 @@ body { font-family: 'Poppins', sans-serif; background: #f8f9fc; overflow-x: hidd
 .dark .po-legend-count { color: #e2e8f0; }
 
 
-input[type="search"] {
-  -webkit-appearance: none;
-  appearance: none;
-}
-input[type="search"]::-webkit-search-decoration,
-input[type="search"]::-webkit-search-cancel-button,
-input[type="search"]::-webkit-search-results-button,
-input[type="search"]::-webkit-search-results-decoration {
-  -webkit-appearance: none;
-}
+
