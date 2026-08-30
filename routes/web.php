@@ -14,6 +14,7 @@ use App\Livewire\Admin\Product\Edit as ProductEdit;
 // Omada Cloud
 use App\Livewire\Admin\Omada\Index as OmadaIndex;
 use App\Livewire\Admin\OmadaBatchCode\Index as OmadaBatchCodesIndex;
+use App\Livewire\Admin\OmadaVoucherTool\Index as OmadaVoucherToolIndex;
 
 
 
@@ -45,6 +46,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/omada', OmadaIndex::class)->name('omada.index');
     Route::get('/omada/{partner}/batch-codes', OmadaBatchCodesIndex::class)->name('omada-batch-codes.index');
+    Route::get('/omada/voucher-tool', OmadaVoucherToolIndex::class)->name('omada-voucher-tool.index');
+
 });
 
 Route::view('/pos', 'temp.placeholder', ['title' => 'Point of Sale'])->name('pos');

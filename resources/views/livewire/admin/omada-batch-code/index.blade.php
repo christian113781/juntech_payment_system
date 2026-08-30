@@ -106,9 +106,7 @@
                     <div class="rounded-xl border border-brand-100 bg-brand-50/60 p-3 dark:border-brand-500/20 dark:bg-brand-500/5">
                         <p class="text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-600 dark:text-brand-300">Partner</p>
                         <div class="mt-1 flex items-center gap-2">
-                            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-[10px] font-bold text-white">
-                                {{ strtoupper(substr($partner->name, 0, 2)) }}
-                            </div>
+
                             <div>
                                 <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $partner->name }}</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ $partner->area->name ?? 'No area assigned' }}</p>

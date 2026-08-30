@@ -134,6 +134,21 @@
         </a>
       </li>
 
+      <li>
+        <a href="{{ route('omada-voucher-tool.index') }}"
+           class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors
+                  {{ request()->routeIs('omada-voucher-tool.*') ? 'bg-brand-50 text-brand-700 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700' }}"
+           @if(request()->routeIs('omada-voucher-tool.*')) aria-current="page" @endif>
+          <svg class="w-5 h-5 flex-shrink-0 transition duration-75
+                      {{ request()->routeIs('omada-voucher-tool.*') ? 'text-brand-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white' }}"
+               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+          </svg>
+          <span class="nav-label truncate">Voucher Designer</span>
+        </a>
+      </li>
+
 
     </ul>
 
