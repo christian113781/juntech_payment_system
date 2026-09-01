@@ -16,6 +16,11 @@ use App\Livewire\Admin\Omada\Index as OmadaIndex;
 use App\Livewire\Admin\OmadaBatchCode\Index as OmadaBatchCodesIndex;
 use App\Livewire\Admin\OmadaVoucherTool\Index as OmadaVoucherToolIndex;
 
+// Vendo Units
+use App\Livewire\Admin\VendoUnit\Index as VendoUnitsIndex;
+use App\Livewire\Admin\VendoPartner\Index as VendoPartnersIndex;
+use App\Livewire\Admin\VendoCollection\Index as VendoCollectionsIndex;
+
 
 
 use App\Livewire\Admin\Category\Index as CategoriesIndex;
@@ -48,6 +53,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/omada/{partner}/batch-codes', OmadaBatchCodesIndex::class)->name('omada-batch-codes.index');
     Route::get('/omada/voucher-tool', OmadaVoucherToolIndex::class)->name('omada-voucher-tool.index');
 
+
+    Route::get('/vendo-units', VendoUnitsIndex::class)->name('vendo-units.index');
+    Route::get('/vendo-partners', VendoPartnersIndex::class)->name('vendo-partners.index');
+    Route::get('/vendo-partners/{partner}/collections', VendoCollectionsIndex::class)->name('vendo-collections.index');
 });
 
 Route::view('/pos', 'temp.placeholder', ['title' => 'Point of Sale'])->name('pos');

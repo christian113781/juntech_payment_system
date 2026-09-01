@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Vendo Partners — Inventory Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="assets/js/main.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { poppins: ['Poppins', 'sans-serif'] },
+          colors: {
+            brand: {
+              50:  '#f0f4ff', 100: '#e0eaff', 200: '#c7d7fd',
+              400: '#818cf8', 500: '#6366f1', 600: '#4f46e5',
+              700: '#4338ca', 900: '#1e1b4b',
+            },
+          },
+          boxShadow: {
+            card: '0 1px 4px 0 rgba(99,102,241,.08), 0 4px 16px 0 rgba(99,102,241,.06)',
+          },
+        }
+      }
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="font-poppins text-gray-800 antialiased" x-data="vendoPartnersPage()" x-cloak>
+
+<a href="#main" class="skip-link">Skip to main content</a>
+
+<!-- ════ MOBILE OVERLAY ════ -->
+<div id="sidebar-overlay"
+     class="fixed inset-0 bg-gray-900/50 z-20 lg:hidden"
+     aria-hidden="true"
+     x-show="mobileOpen"
+     x-transition.opacity
+     @click="closeMobileSidebar()"
+     style="display:none"></div>
+
+<!-- ════ TOAST ════ -->
+<div id="toast" role="status" aria-live="polite" aria-atomic="true" :class="{ show: toast.show }">
+  <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+  </svg>
+  <span x-text="toast.msg">Done</span>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     ADD / EDIT PARTNER MODAL
+════════════════════════════════════════════════ -->
+<div id="form-modal-backdrop"
+     role="dialog" aria-modal="true" aria-labelledby="form-modal-title" aria-describedby="form-modal-desc"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/55"
+     x-show="formModalOpen" x-transition.opacity
+     @keydown.escape="closeFormModal()"
+     @click="if ($event.target.id === 'form-modal-backdrop') closeFormModal()"
+     style="display:none">
+  <div class="bg-white rounded-[1.25rem] w-full max-w-lg shadow-card overflow-y-auto" style="max-block-size:min(90dvh,46rem)"
+       x-ref="formDialog" @keydown.tab="trapFocusDialog($event, 'formDialog')"
+       x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4 scale-[.98]" x-transition:enter-end="opacity-100 translate-y-0 scale-100">
+
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-[1.25rem]">
+      <div>
+        <h2 id="form-modal-title" class="text-lg font-bold text-gray-900" x-text="editingId ? 'Edit Partner' : 'Add New Partner'"></h2>
+        <p id="form-modal-desc" class="text-xs text-gray-400 mt-0.5" x-text="editingId ? 'Update this partner\'s details' : 'New partner will start as Unassigned'"></p>
+      </div>
+      <button type="button" @click="closeFormModal()"
+              class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              aria-label="Close dialog">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <form @submit.prevent="submitForm()" novalidate>
+      <div class="px-6 py-5 space-y-4">
+
+        <!-- Partner Name -->
+        <div>
+          <label for="p-name" class="block text-xs font-semibold text-gray-600 mb-1.5">
+            Partner Name <span aria-hidden="true" class="text-red-500">*</span><span class="sr-only">(required)</span>
+          </label>
+          <input id="p-name" type="text" class="field" :class="{ error: errors.name }"
+                 x-model.trim="form.name" placeholder="e.g. Juan Store" autocomplete="off"
+                 aria-describedby="p-name-err">
+          <p id="p-name-err" class="mt-1 text-xs text-red-500" role="alert" x-show="errors.name">Partner name is required.</p>
+        </div>
+
+        <!-- Area + Contact -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="p-area" class="block text-xs font-semibold text-gray-600 mb-1.5">
+              Area <span aria-hidden="true" class="text-red-500">*</span><span class="sr-only">(required)</span>
+            </label>
+            <select id="p-area" class="field" :class="{ error: errors.area }" x-model="form.area" aria-describedby="p-area-err">
+              <option value="">Select area…</option>
+              <template x-for="a in areas" :key="a">
+                <option :value="a" x-text="a"></option>
+              </template>
+            </select>
+            <p id="p-area-err" class="mt-1 text-xs text-red-500" role="alert" x-show="errors.area">Please select an area.</p>
+          </div>
+          <div>
+            <label for="p-contact" class="block text-xs font-semibold text-gray-600 mb-1.5">Contact Number</label>
+            <input id="p-contact" type="tel" class="field"
+                   x-model.trim="form.contactNumber" placeholder="e.g. 09171234567" autocomplete="off">
+          </div>
+        </div>
+
+        <!-- Address -->
+        <div>
+          <label for="p-address" class="block text-xs font-semibold text-gray-600 mb-1.5">Address</label>
+          <textarea id="p-address" rows="2" class="field" style="min-block-size:unset"
+                    x-model.trim="form.address" placeholder="e.g. 123 Rizal St., Brgy. 1"></textarea>
+        </div>
+
+        <!-- Vendo Unit -->
+        <div>
+          <label for="p-unit" class="block text-xs font-semibold text-gray-600 mb-1.5">Assign Vendo Unit</label>
+          <select id="p-unit" class="field" x-model="form.vendoUnitId">
+            <option value="">None (Unassigned)</option>
+            <template x-for="u in availableUnitsForForm" :key="u.id">
+              <option :value="u.id" x-text="u.name + ' — ' + u.key"></option>
+            </template>
+          </select>
+          <p class="mt-1.5 text-xs text-gray-400">Only Ready units are shown. Assigning a unit will set it to <strong class="text-brand-600">Assigned</strong>.</p>
+        </div>
+
+        <!-- Status + Share Rate -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="p-status" class="block text-xs font-semibold text-gray-600 mb-1.5">
+              Status <span aria-hidden="true" class="text-red-500">*</span><span class="sr-only">(required)</span>
+            </label>
+            <select id="p-status" class="field" x-model="form.status">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="unassigned">Unassigned</option>
+            </select>
+          </div>
+          <div>
+            <label for="p-share" class="block text-xs font-semibold text-gray-600 mb-1.5">
+              Share Rate (%) <span aria-hidden="true" class="text-red-500">*</span><span class="sr-only">(required)</span>
+            </label>
+            <input id="p-share" type="number" class="field" :class="{ error: errors.shareRate }"
+                   x-model.number="form.shareRate" placeholder="e.g. 30" min="0" max="100" step="0.01"
+                   aria-describedby="p-share-err">
+            <p id="p-share-err" class="mt-1 text-xs text-red-500" role="alert" x-show="errors.shareRate">Enter a valid share rate (0–100).</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 sticky bottom-0 bg-white rounded-b-[1.25rem]">
+        <button type="button" @click="closeFormModal()"
+                class="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-100 transition-colors min-h-[44px]">
+          Cancel
+        </button>
+        <button type="submit"
+                class="px-6 py-2.5 rounded-xl text-sm font-semibold bg-brand-600 text-white hover:bg-brand-700 transition-colors shadow-sm min-h-[44px]"
+                x-text="editingId ? 'Save Changes' : 'Add Partner'">
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     RECORD / EDIT COLLECTION MODAL
+════════════════════════════════════════════════ -->
+<div id="collect-modal-backdrop"
+     role="dialog" aria-modal="true" aria-labelledby="collect-modal-title"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/55"
+     x-show="collectModalOpen" x-transition.opacity
+     @keydown.escape="closeCollectModal()"
+     @click="if ($event.target.id === 'collect-modal-backdrop') closeCollectModal()"
+     style="display:none">
+  <div class="bg-white rounded-[1.25rem] w-full max-w-md shadow-card overflow-y-auto" style="max-block-size:min(90dvh,42rem)"
+       x-ref="collectDialog" @keydown.tab="trapFocusDialog($event, 'collectDialog')"
+       x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4 scale-[.98]" x-transition:enter-end="opacity-100 translate-y-0 scale-100">
+
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-[1.25rem]">
+      <div>
+        <h2 id="collect-modal-title" class="text-lg font-bold text-gray-900" x-text="editingCollectionId ? 'Edit Collection' : 'Record Collection'"></h2>
+        <p class="text-xs text-gray-400 mt-0.5" x-text="collectPartner ? collectPartner.name : ''"></p>
+      </div>
+      <button type="button" @click="closeCollectModal()"
+              class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              aria-label="Close dialog">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <form @submit.prevent="submitCollection()" novalidate>
+      <div class="px-6 py-5 space-y-4">
+
+        <div>
+          <label for="c-date" class="block text-xs font-semibold text-gray-600 mb-1.5">
+            Collection Date <span aria-hidden="true" class="text-red-500">*</span><span class="sr-only">(required)</span>
+          </label>
+          <input id="c-date" type="date" class="field" :class="{ error: errors.cDate }"
+                 x-model="collectForm.date" aria-describedby="c-date-err">
+          <p id="c-date-err" class="mt-1 text-xs text-red-500" role="alert" x-show="errors.cDate">Collection date is required.</p>
+        </div>
+
+        <div>
+          <label for="c-amount" class="block text-xs font-semibold text-gray-600 mb-1.5">
+            Total Amount (₱) <span aria-hidden="true" class="text-red-500">*</span><span class="sr-only">(required)</span>
+          </label>
+          <input id="c-amount" type="number" class="field" :class="{ error: errors.cAmount }"
+                 x-model.number="collectForm.totalAmount" placeholder="e.g. 1500" min="0" step="0.01"
+                 @input="calcShares()" aria-describedby="c-amount-err">
+          <p id="c-amount-err" class="mt-1 text-xs text-red-500" role="alert" x-show="errors.cAmount">Enter a valid amount greater than 0.</p>
+        </div>
+
+        <!-- Auto-calculated breakdown -->
+        <div class="bg-gray-50 rounded-xl p-4 space-y-2 text-sm" x-show="collectPartner">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">Share Rate</span>
+            <span class="font-semibold text-gray-700" x-text="(collectPartner ? collectPartner.shareRate : 0) + '%'"></span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">Partner Share</span>
+            <span class="font-semibold text-brand-700" x-text="'₱' + formatNum(collectForm.partnerShare)"></span>
+          </div>
+          <div class="flex items-center justify-between border-t border-gray-200 pt-2">
+            <span class="text-gray-500 font-semibold">Owner Amount</span>
+            <span class="font-bold text-gray-900" x-text="'₱' + formatNum(collectForm.ownerAmount)"></span>
+          </div>
+        </div>
+
+        <div>
+          <label for="c-remarks" class="block text-xs font-semibold text-gray-600 mb-1.5">Remarks</label>
+          <textarea id="c-remarks" rows="2" class="field" style="min-block-size:unset"
+                    x-model.trim="collectForm.remarks" placeholder="Optional notes…"></textarea>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 sticky bottom-0 bg-white rounded-b-[1.25rem]">
+        <button type="button" @click="closeCollectModal()"
+                class="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-100 transition-colors min-h-[44px]">
+          Cancel
+        </button>
+        <button type="submit"
+                class="px-6 py-2.5 rounded-xl text-sm font-semibold bg-brand-600 text-white hover:bg-brand-700 transition-colors shadow-sm min-h-[44px]"
+                x-text="editingCollectionId ? 'Save Changes' : 'Record Collection'">
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     CONFIRM DIALOG — Delete Partner
+════════════════════════════════════════════════ -->
+<div id="confirm-backdrop"
+     role="alertdialog" aria-modal="true" aria-labelledby="confirm-title"
+     class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/55"
+     x-show="confirmAction" x-transition.opacity
+     @keydown.escape="confirmAction = null"
+     @click="if ($event.target.id === 'confirm-backdrop') confirmAction = null"
+     style="display:none">
+  <template x-if="confirmAction">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-card">
+      <div class="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center mb-3" aria-hidden="true">
+        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9.5 3h5a1 1 0 011 1v3h-7V4a1 1 0 011-1z"/>
+        </svg>
+      </div>
+      <h2 id="confirm-title" class="text-base font-bold text-gray-900" x-text="confirmAction.title"></h2>
+      <p class="text-sm text-gray-500 mt-1" x-text="confirmAction.message"></p>
+      <div class="flex justify-end gap-3 mt-5">
+        <button @click="confirmAction = null" class="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 min-h-[44px]">Cancel</button>
+        <button @click="runConfirmedAction()" class="px-4 py-2 rounded-xl text-sm font-semibold bg-red-500 text-white hover:bg-red-600 min-h-[44px]" x-text="confirmAction.confirmLabel || 'Confirm'"></button>
+      </div>
+    </div>
+  </template>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     LAYOUT SHELL
+════════════════════════════════════════════════ -->
+<div class="flex min-h-[100dvh]">
+
+  <!-- ════════════ SIDEBAR ════════════ -->
+  <aside id="sidebar"
+         aria-label="Primary navigation"
+         class="bg-white flex flex-col shadow-card flex-shrink-0 relative z-30"
+         :class="{ collapsed: sidebarCollapsed, 'mobile-open': mobileOpen }">
+
+    <div class="logo-wrap flex items-center gap-3 px-6 py-5 border-b border-gray-100 flex-shrink-0">
+      <div class="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+        </svg>
+      </div>
+      <div class="logo-text min-w-0">
+        <p class="text-sm font-bold text-gray-900 leading-tight whitespace-nowrap">StockMaster</p>
+        <p class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">Inventory Pro</p>
+      </div>
+    </div>
+
+    <nav class="flex-1 sidebar-scroll py-3 px-2" aria-label="Primary">
+      <template x-for="section in navSections" :key="section.label">
+        <div>
+          <p class="nav-section-label px-3 mb-2 mt-4 first:mt-0 text-[10px] font-semibold text-gray-400 uppercase tracking-wider" x-text="section.label"></p>
+          <ul class="space-y-0.5" role="list">
+            <template x-for="item in section.items" :key="item.name">
+              <li>
+                <a :href="item.href" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-700 transition-colors"
+                   :aria-current="item.active ? 'page' : null" :title="item.name">
+                  <svg class="w-5 h-5 flex-shrink-0" :class="item.active ? 'text-brand-500' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon"/>
+                  </svg>
+                  <span class="nav-label" x-text="item.name"></span>
+                </a>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </template>
+    </nav>
+
+    <div class="border-t border-gray-100 px-3 py-4 flex-shrink-0">
+      <div class="user-wrap flex items-center gap-3">
+        <div class="user-avatar w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold" aria-hidden="true">JD</div>
+        <div class="user-info min-w-0">
+          <p class="text-sm font-semibold text-gray-800 truncate">Juan Dela Cruz</p>
+          <p class="text-[11px] text-gray-400 truncate">Administrator</p>
+        </div>
+        <button class="user-info ms-auto p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" aria-label="Sign out">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ════════════ MAIN COLUMN ════════════ -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- HEADER -->
+    <header class="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-sm">
+      <div class="flex items-center gap-3 px-4 sm:px-6 py-3.5">
+        <button id="collapse-btn"
+                class="hidden lg:flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-brand-600 transition-colors flex-shrink-0"
+                :class="{ 'is-collapsed': sidebarCollapsed }"
+                @click="sidebarCollapsed = !sidebarCollapsed"
+                :aria-expanded="(!sidebarCollapsed).toString()" aria-controls="sidebar"
+                :aria-label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v18"/>
+          </svg>
+        </button>
+        <button id="menu-btn"
+                class="lg:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                @click="mobileOpen ? closeMobileSidebar() : openMobileSidebar()"
+                :aria-expanded="mobileOpen.toString()" aria-controls="sidebar"
+                :aria-label="mobileOpen ? 'Close navigation menu' : 'Open navigation menu'">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+        <div class="flex-1 max-w-md">
+          <div class="relative">
+            <svg class="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+            <input id="global-search" type="search" placeholder="Search products, orders…"
+                   class="w-full ps-9 pe-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg placeholder:text-gray-400 focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-100 outline-none transition-colors min-h-[2.75rem]">
+          </div>
+        </div>
+        <div class="flex items-center gap-2 ms-auto">
+          <button @click="toggleDark()"
+                  class="dark-toggle text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10"
+                  :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
+            <svg class="icon-sun w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            <svg class="icon-moon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+            </svg>
+          </button>
+          <div class="relative">
+            <button @click="notifOpen = !notifOpen"
+                    class="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                    :aria-label="'Notifications' + (unreadCount ? ' (' + unreadCount + ' unread)' : '')"
+                    aria-haspopup="true" :aria-expanded="notifOpen.toString()" aria-controls="notif-panel">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+              <span class="absolute top-1.5 end-1.5 w-2 h-2 rounded-full bg-red-500" aria-hidden="true" x-show="unreadCount > 0"></span>
+            </button>
+            <div id="notif-panel" role="menu" aria-label="Notifications"
+                 x-show="notifOpen" x-transition
+                 @click.outside="notifOpen = false" @keydown.escape="notifOpen = false"
+                 class="absolute end-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-card border border-gray-100 z-40 overflow-hidden"
+                 style="display:none">
+              <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <h2 class="text-sm font-bold text-gray-900">Notifications</h2>
+                <button @click="markAllRead()" x-show="unreadCount > 0" class="text-xs font-semibold text-brand-600 hover:text-brand-700">Mark all as read</button>
+              </div>
+              <ul class="max-h-80 overflow-y-auto divide-y divide-gray-50" role="list">
+                <template x-for="n in notifications" :key="n.id">
+                  <li>
+                    <button @click="markRead(n)" class="w-full flex items-start gap-3 px-4 py-3 text-start hover:bg-gray-50/60 transition-colors" :class="{ 'bg-brand-50/40': !n.read }">
+                      <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="n.iconBg" aria-hidden="true">
+                        <svg class="w-4 h-4" :class="n.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="n.icon"/></svg>
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <p class="text-sm font-medium text-gray-800 truncate" x-text="n.title"></p>
+                        <p class="text-xs text-gray-500 mt-0.5" x-text="n.message"></p>
+                        <p class="text-[11px] text-gray-400 mt-1" x-text="n.time"></p>
+                      </div>
+                      <span class="w-2 h-2 rounded-full bg-brand-500 flex-shrink-0 mt-1.5" aria-hidden="true" x-show="!n.read"></span>
+                    </button>
+                  </li>
+                </template>
+                <li x-show="notifications.length === 0">
+                  <p class="px-4 py-8 text-center text-sm text-gray-400">You're all caught up.</p>
+                </li>
+              </ul>
+              <div class="px-4 py-3 border-t border-gray-100 text-center">
+                <a href="#" class="text-xs font-semibold text-brand-600 hover:text-brand-700">View all notifications</a>
+              </div>
+            </div>
+          </div>
+          <div class="relative">
+            <button @click="profileOpen = !profileOpen"
+                    class="flex items-center gap-2 p-1 pe-2 rounded-full hover:bg-gray-100 transition-colors"
+                    aria-haspopup="true" :aria-expanded="profileOpen.toString()" aria-controls="profile-panel"
+                    aria-label="Account menu for Juan Dela Cruz">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0" aria-hidden="true">JD</div>
+              <svg class="w-3.5 h-3.5 text-gray-400 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="profile-panel" role="menu" aria-label="Account menu"
+                 x-show="profileOpen" x-transition
+                 @click.outside="profileOpen = false" @keydown.escape="profileOpen = false"
+                 class="absolute end-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-card border border-gray-100 z-40 overflow-hidden"
+                 style="display:none">
+              <div class="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0" aria-hidden="true">JD</div>
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold text-gray-900 truncate">Juan Dela Cruz</p>
+                  <p class="text-xs text-gray-400 truncate">juan.delacruz@stockmaster.ph</p>
+                </div>
+              </div>
+              <ul class="py-1.5" role="list">
+                <li><a href="profile.html" role="menuitem" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"><svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>My Profile</a></li>
+              </ul>
+              <div class="border-t border-gray-100 py-1.5">
+                <button role="menuitem" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                  <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ════════════ MAIN PAGE ════════════ -->
+    <main id="main" tabindex="-1" class="flex-1 px-4 sm:px-6 py-6 space-y-6 max-w-[1600px] mx-auto w-full">
+
+      <!-- Page header -->
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Vendo Partners</h1>
+          <p class="text-sm text-gray-500 mt-0.5">
+            <span x-text="filteredPartners.length"></span> of <span x-text="partners.length"></span> partners
+          </p>
+        </div>
+        <button @click="openAddModal()"
+                class="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm min-h-[44px]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Add Partner
+        </button>
+      </div>
+
+      <!-- MINI STATS -->
+      <section aria-labelledby="pstats-heading">
+        <h2 id="pstats-heading" class="sr-only">Partner summary</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Total</p>
+              <p class="text-lg font-bold text-gray-900" x-text="partners.length"></p>
+            </div>
+          </div>
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Overdue</p>
+              <p class="text-lg font-bold text-red-600" x-text="partners.filter(p => collectionDaysLeft(p) !== null && collectionDaysLeft(p) < 0).length"></p>
+            </div>
+          </div>
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Due ≤ 7 days</p>
+              <p class="text-lg font-bold text-amber-600" x-text="partners.filter(p => { const d = collectionDaysLeft(p); return d !== null && d >= 0 && d <= 7; }).length"></p>
+            </div>
+          </div>
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Active</p>
+              <p class="text-lg font-bold text-gray-900" x-text="partners.filter(p => p.status === 'active').length"></p>
+            </div>
+          </div>
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Unassigned</p>
+              <p class="text-lg font-bold text-gray-900" x-text="partners.filter(p => p.status === 'unassigned').length"></p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TABLE CARD -->
+      <section aria-labelledby="table-heading" class="bg-white rounded-2xl shadow-card">
+
+        <!-- Filter + Search bar -->
+        <div class="p-5 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center gap-3">
+          <h2 id="table-heading" class="sr-only">Partner list</h2>
+
+          <!-- Search -->
+          <div class="relative flex-1 max-w-sm">
+            <svg class="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+            <input type="search" x-model.debounce.200ms="query" placeholder="Search partner, area, or unit…"
+                   class="w-full ps-9 pe-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg placeholder:text-gray-400 focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-100 outline-none transition-colors min-h-[2.75rem]"
+                   aria-label="Search partners">
+          </div>
+
+          <!-- Collection filter tabs -->
+          <div class="flex items-center gap-1.5 flex-wrap" role="group" aria-label="Filter by collection status">
+            <template x-for="f in filterOptions" :key="f.value">
+              <button @click="activeFilter = f.value"
+                      class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors min-h-[36px]"
+                      :class="activeFilter === f.value
+                        ? 'bg-brand-600 text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                      :aria-pressed="(activeFilter === f.value).toString()"
+                      x-text="f.label">
+              </button>
+            </template>
+          </div>
+
+          <!-- Sort -->
+          <select x-model="sortBy" class="field !w-auto min-h-[2.75rem] py-2 text-sm lg:ms-auto" aria-label="Sort partners">
+            <option value="urgency">Sort: Most Urgent</option>
+            <option value="name">Sort: Name (A–Z)</option>
+            <option value="area">Sort: Area</option>
+          </select>
+        </div>
+
+        <!-- Table -->
+        <div class="tbl-wrap" tabindex="0" role="region" aria-labelledby="table-heading">
+          <table class="w-full text-sm" style="min-inline-size:72rem">
+            <caption class="sr-only">Vendo partners list</caption>
+            <thead>
+              <tr class="text-left border-b border-gray-100">
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Partner</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Area</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Contact</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Assigned Unit</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Vendo Status</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Share Rate</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Last Collection</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Collection Status</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              <template x-for="p in filteredPartners" :key="p.id">
+                <tr class="hover:bg-gray-50/60 transition-colors"
+                    :class="{ 'bg-red-50/40 hover:bg-red-50/60': collectionDaysLeft(p) !== null && collectionDaysLeft(p) < 0 }">
+
+                  <!-- Partner name + status badge -->
+                  <td class="px-5 py-3">
+                    <div class="flex items-center gap-2.5 min-w-[10rem]">
+                      <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                           :class="partnerStatusStyle(p.status).icon" aria-hidden="true"
+                           x-text="p.name.charAt(0).toUpperCase()">
+                      </div>
+                      <div class="min-w-0">
+                        <p class="font-semibold text-gray-800 truncate" x-text="p.name"></p>
+                        <span class="badge text-[10px]" :class="partnerStatusStyle(p.status).badge" x-text="partnerStatusLabel(p.status)"></span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="px-5 py-3 text-gray-600 whitespace-nowrap" x-text="p.area"></td>
+
+                  <td class="px-5 py-3 text-gray-500 whitespace-nowrap" x-text="p.contactNumber || '—'"></td>
+
+                  <!-- Assigned unit -->
+                  <td class="px-5 py-3">
+                    <span x-show="p.vendoUnitName" class="font-medium text-gray-700  text-xs" x-text="p.vendoUnitName"></span>
+                    <span x-show="!p.vendoUnitName" class="text-gray-400 italic text-xs">Unassigned</span>
+                  </td>
+
+                  <!-- Vendo status badge -->
+                  <td class="px-5 py-3">
+                    <template x-if="p.vendoUnitName">
+                      <span class="badge" :class="vendoStatusStyle(p.vendoUnitStatus)" x-text="vendoStatusLabel(p.vendoUnitStatus)"></span>
+                    </template>
+                    <template x-if="!p.vendoUnitName">
+                      <span class="text-gray-400 text-xs italic">—</span>
+                    </template>
+                  </td>
+
+                  <!-- Share rate -->
+                  <td class="px-5 py-3 text-end font-semibold text-gray-700" x-text="p.shareRate + '%'"></td>
+
+                  <!-- Last collection -->
+                  <td class="px-5 py-3 text-gray-600 whitespace-nowrap"
+                      x-text="p.lastCollectedAt ? fmtDate(p.lastCollectedAt) : '—'"></td>
+
+                  <!-- Collection status badge -->
+                  <td class="px-5 py-3">
+                    <span class="badge" :class="collectionStatusStyle(p)" x-text="collectionStatusLabel(p)"></span>
+                  </td>
+
+                  <!-- Actions -->
+                  <td class="px-5 py-3 text-end">
+                    <div class="flex items-center justify-end gap-1">
+                      <!-- View Collection (goes to the dedicated Vendo Collection page for this partner) -->
+                      <a :href="'vendo-collection.html?id=' + p.id"
+                         class="p-2 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors inline-flex"
+                         :aria-label="'View collections for ' + p.name">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                      </a>
+
+                      <!-- Edit -->
+                      <button @click="openEditModal(p)"
+                              class="p-2 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                              :aria-label="'Edit ' + p.name">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                      </button>
+
+                      <!-- More (Quick Record + Delete) -->
+                      <div class="relative" x-data="{ open: false }" @keydown.escape="open = false">
+                        <button @click="open = !open"
+                                class="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                aria-haspopup="true" :aria-expanded="open.toString()" :aria-label="'More actions for ' + p.name">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01"/></svg>
+                        </button>
+                        <div x-show="open" x-transition @click.outside="open = false"
+                             class="absolute end-0 top-full mt-1 w-52 bg-white rounded-xl shadow-card border border-gray-100 z-20 overflow-hidden py-1 text-start"
+                             style="display:none">
+                          <button @click="open=false; openRecordCollection(p)"
+                                  class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                            <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Record Collection
+                          </button>
+                          <div class="border-t border-gray-100 my-1"></div>
+                          <button @click="open=false; openDeletePartnerConfirm(p)"
+                                  class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9.5 3h5a1 1 0 011 1v3h-7V4a1 1 0 011-1z"/></svg>
+                            Delete Partner
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="filteredPartners.length === 0">
+                <td colspan="9" class="px-5 py-10 text-center text-sm text-gray-400">No partners match your search or filter.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="border-t border-gray-100 px-6 py-4 text-center text-xs text-gray-400">
+      StockMaster Inventory Pro &copy; 2026
+    </footer>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE SCRIPT
+════════════════════════════════════════════════ -->
+<script>
+const COLLECTION_INTERVAL_DAYS = 32;
+
+function vendoPartnersPage() {
+  return {
+    /* ── shared chrome ── */
+    ...sharedChrome('vendo-partners.html'),
+
+    /* ═══════════════════════════════════════
+       REFERENCE DATA
+    ═══════════════════════════════════════ */
+    areas: ['Area A', 'Area B', 'Area C', 'Area D'],
+
+    /* Vendo units registry — mirrors vendo-units.html mock data.
+       In production this would come from the same API/store. */
+    vendoUnits: [
+      { id: 1, name: 'VENDO-001', key: 'VU-7A2K91', status: 'assigned' },
+      { id: 2, name: 'VENDO-002', key: 'VU-3F9C22', status: 'ready'    },
+      { id: 3, name: 'VENDO-003', key: 'VU-8B1D47', status: 'repair'   },
+      { id: 4, name: 'VENDO-004', key: 'VU-1E6H80', status: 'retired'  },
+      { id: 5, name: 'VENDO-005', key: 'VU-5G4M63', status: 'ready'    },
+      { id: 6, name: 'VENDO-006', key: 'VU-9J0P15', status: 'assigned' },
+    ],
+
+    /* Partners with embedded vendo unit info and last collection date */
+    partners: [
+      {
+        id: 1, name: 'Juan Store', area: 'Area A', contactNumber: '09171234567',
+        address: '123 Rizal St., Brgy. 1', status: 'active', shareRate: 30,
+        vendoUnitId: 1, vendoUnitName: 'VENDO-001', vendoUnitStatus: 'assigned',
+        lastCollectedAt: '2026-09-01',
+      },
+      {
+        id: 2, name: 'Nena Sari-Sari', area: 'Area B', contactNumber: '09271112233',
+        address: '45 Mabini Ave.', status: 'active', shareRate: 25,
+        vendoUnitId: null, vendoUnitName: null, vendoUnitStatus: null,
+        lastCollectedAt: '2026-07-15',
+      },
+      {
+        id: 3, name: 'Mang Tomas Store', area: 'Area C', contactNumber: '',
+        address: '7 Del Pilar Ext.', status: 'active', shareRate: 30,
+        vendoUnitId: null, vendoUnitName: null, vendoUnitStatus: null,
+        lastCollectedAt: '2026-06-10',
+      },
+      {
+        id: 4, name: 'Aling Rosa Store', area: 'Area A', contactNumber: '09991234567',
+        address: 'Purok 3, Brgy. Poblacion', status: 'active', shareRate: 30,
+        vendoUnitId: 6, vendoUnitName: 'VENDO-006', vendoUnitStatus: 'assigned',
+        lastCollectedAt: '2026-08-01',
+      },
+      {
+        id: 5, name: 'Kuya Bert Eatery', area: 'Area D', contactNumber: '09181122334',
+        address: '22 Bonifacio St.', status: 'inactive', shareRate: 20,
+        vendoUnitId: null, vendoUnitName: null, vendoUnitStatus: null,
+        lastCollectedAt: null,
+      },
+      {
+        id: 6, name: 'Corner Store Davao', area: 'Area B', contactNumber: '',
+        address: 'Ground Floor, C. Bangoy St.', status: 'unassigned', shareRate: 30,
+        vendoUnitId: null, vendoUnitName: null, vendoUnitStatus: null,
+        lastCollectedAt: null,
+      },
+    ],
+
+    /* Collections keyed by partner id */
+    collections: {
+      1: [
+        { id: 101, partner_id: 1, collection_date: '2026-09-01', total_amount: 1500, share_amount: 450,  owner_amount: 1050, remarks: 'Full cash collection' },
+        { id: 102, partner_id: 1, collection_date: '2026-07-31', total_amount: 1200, share_amount: 360,  owner_amount: 840,  remarks: '' },
+        { id: 103, partner_id: 1, collection_date: '2026-06-29', total_amount: 1800, share_amount: 540,  owner_amount: 1260, remarks: 'Slight variance in coin count' },
+      ],
+      4: [
+        { id: 201, partner_id: 4, collection_date: '2026-08-01', total_amount: 980,  share_amount: 294,  owner_amount: 686,  remarks: '' },
+        { id: 202, partner_id: 4, collection_date: '2026-06-30', total_amount: 1150, share_amount: 345,  owner_amount: 805,  remarks: 'Unit was slow week 3' },
+      ],
+      2: [
+        { id: 301, partner_id: 2, collection_date: '2026-07-15', total_amount: 700,  share_amount: 175,  owner_amount: 525,  remarks: '' },
+      ],
+      3: [],
+      5: [],
+      6: [],
+    },
+
+    /* ═══════════════════════════════════════
+       FILTERS / SORT
+    ═══════════════════════════════════════ */
+    query: '',
+    activeFilter: 'all',
+    sortBy: 'urgency',
+
+    filterOptions: [
+      { value: 'all',        label: 'All'              },
+      { value: 'overdue',    label: 'Overdue'          },
+      { value: 'due_today',  label: 'Due Today'        },
+      { value: 'due_soon',   label: 'Ready for Collection' },
+      { value: 'active',     label: 'Active'           },
+      { value: 'unassigned', label: 'Unassigned'       },
+    ],
+
+    /* Days until next collection (null if no history, negative if overdue) */
+    collectionDaysLeft(p) {
+      if (!p.lastCollectedAt) return null;
+      const last = new Date(p.lastCollectedAt);
+      const next = new Date(last);
+      next.setDate(next.getDate() + COLLECTION_INTERVAL_DAYS);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      next.setHours(0,0,0,0);
+      return Math.round((next - today) / 86400000);
+    },
+
+    nextCollectionDate(lastCollectedAt) {
+      const d = new Date(lastCollectedAt);
+      d.setDate(d.getDate() + COLLECTION_INTERVAL_DAYS);
+      return d.toISOString().slice(0,10);
+    },
+
+    /* Sort key: overdue first (most negative = worst), then fewest days, then null last */
+    urgencyKey(p) {
+      const d = this.collectionDaysLeft(p);
+      if (d === null) return 99999;  // no history → last
+      return d;                      // negative = overdue, 0 = today, positive = days left
+    },
+
+    get filteredPartners() {
+      let list = this.partners.filter(p => {
+        const q = this.query.trim().toLowerCase();
+        if (q) {
+          const matches = p.name.toLowerCase().includes(q)
+            || p.area.toLowerCase().includes(q)
+            || (p.vendoUnitName && p.vendoUnitName.toLowerCase().includes(q));
+          if (!matches) return false;
+        }
+        const d = this.collectionDaysLeft(p);
+        switch (this.activeFilter) {
+          case 'overdue':    return d !== null && d < 0;
+          case 'due_today':  return d !== null && d === 0;
+          case 'due_soon':   return d !== null && d >= 0 && d <= COLLECTION_INTERVAL_DAYS;
+          case 'active':     return p.status === 'active';
+          case 'unassigned': return p.status === 'unassigned';
+          default:           return true;
+        }
+      });
+
+      if (this.sortBy === 'urgency') {
+        list = list.slice().sort((a, b) => this.urgencyKey(a) - this.urgencyKey(b) || a.name.localeCompare(b.name));
+      } else if (this.sortBy === 'name') {
+        list = list.slice().sort((a, b) => a.name.localeCompare(b.name));
+      } else if (this.sortBy === 'area') {
+        list = list.slice().sort((a, b) => a.area.localeCompare(b.area) || a.name.localeCompare(b.name));
+      }
+      return list;
+    },
+
+    /* ═══════════════════════════════════════
+       STATUS DISPLAY HELPERS
+    ═══════════════════════════════════════ */
+    partnerStatusLabel(status) {
+      return { active: 'Active', inactive: 'Inactive', unassigned: 'Unassigned' }[status] || status;
+    },
+    partnerStatusStyle(status) {
+      return {
+        active:     { badge: 'bg-emerald-50 text-emerald-700', icon: 'bg-emerald-100 text-emerald-700' },
+        inactive:   { badge: 'bg-gray-100 text-gray-500',      icon: 'bg-gray-100 text-gray-500'      },
+        unassigned: { badge: 'bg-amber-50 text-amber-700',     icon: 'bg-amber-100 text-amber-700'    },
+      }[status] || { badge: 'bg-gray-100 text-gray-600', icon: 'bg-gray-100 text-gray-600' };
+    },
+
+    vendoStatusLabel(status) {
+      return { ready: 'Ready', assigned: 'Assigned', repair: 'Repair', retired: 'Retired' }[status] || '—';
+    },
+    vendoStatusStyle(status) {
+      return {
+        ready:    'bg-emerald-50 text-emerald-700',
+        assigned: 'bg-brand-50 text-brand-700',
+        repair:   'bg-amber-50 text-amber-700',
+        retired:  'bg-gray-100 text-gray-600',
+      }[status] || 'bg-gray-100 text-gray-600';
+    },
+
+    collectionStatusLabel(p) {
+      const d = this.collectionDaysLeft(p);
+      if (d === null) return 'No collection recorded';
+      if (d < 0)  return Math.abs(d) + (Math.abs(d) === 1 ? ' day overdue' : ' days overdue');
+      if (d === 0) return 'Due today';
+      if (d === 1) return '1 day left';
+      return d + ' days left';
+    },
+    collectionStatusStyle(p) {
+      const d = this.collectionDaysLeft(p);
+      if (d === null) return 'bg-gray-100 text-gray-500';
+      if (d < 0)      return 'bg-red-100 text-red-700';
+      if (d === 0)    return 'bg-orange-100 text-orange-700';
+      if (d <= 7)     return 'bg-amber-50 text-amber-700';
+      return 'bg-emerald-50 text-emerald-700';
+    },
+
+    /* ═══════════════════════════════════════
+       ADD / EDIT PARTNER MODAL
+    ═══════════════════════════════════════ */
+    formModalOpen: false,
+    editingId: null,
+    errors: {},
+    form: { name: '', area: '', contactNumber: '', address: '', vendoUnitId: '', status: 'active', shareRate: 30 },
+
+    /* Units available in the form: ready units that aren't taken by another partner
+       (except the unit already assigned to the partner being edited) */
+    get availableUnitsForForm() {
+      const takenIds = new Set(
+        this.partners
+          .filter(p => p.vendoUnitId && p.id !== this.editingId)
+          .map(p => p.vendoUnitId)
+      );
+      return this.vendoUnits.filter(u => u.status === 'ready' && !takenIds.has(u.id));
+    },
+
+    openAddModal() {
+      this.editingId = null;
+      this.form = { name: '', area: '', contactNumber: '', address: '', vendoUnitId: '', status: 'active', shareRate: 30 };
+      this.errors = {};
+      this._openFormModal();
+    },
+    openEditModal(p) {
+      this.editingId = p.id;
+      this.form = {
+        name: p.name, area: p.area, contactNumber: p.contactNumber,
+        address: p.address, vendoUnitId: p.vendoUnitId ? String(p.vendoUnitId) : '',
+        status: p.status, shareRate: p.shareRate,
+      };
+      this.errors = {};
+      this._openFormModal();
+    },
+    _openFormModal() {
+      this.lastFocus = document.activeElement;
+      this.formModalOpen = true;
+      document.body.style.overflow = 'hidden';
+      this.$nextTick(() => {
+        const first = this.$refs.formDialog?.querySelector('input, select, textarea, button');
+        if (first) first.focus();
+      });
+    },
+    closeFormModal() {
+      this.formModalOpen = false;
+      document.body.style.overflow = '';
+      if (this.lastFocus) this.lastFocus.focus();
+    },
+
+    validateForm() {
+      this.errors = {};
+      let ok = true;
+      if (!this.form.name) { this.errors.name = true; ok = false; }
+      if (!this.form.area) { this.errors.area = true; ok = false; }
+      if (this.form.shareRate === '' || isNaN(this.form.shareRate) || this.form.shareRate < 0 || this.form.shareRate > 100) {
+        this.errors.shareRate = true; ok = false;
+      }
+      return ok;
+    },
+
+    submitForm() {
+      if (!this.validateForm()) return;
+
+      const unitId = this.form.vendoUnitId ? Number(this.form.vendoUnitId) : null;
+      const unit   = unitId ? this.vendoUnits.find(u => u.id === unitId) : null;
+
+      if (this.editingId) {
+        const idx = this.partners.findIndex(p => p.id === this.editingId);
+        if (idx > -1) {
+          const old = this.partners[idx];
+          // Release old unit if it changed
+          if (old.vendoUnitId && old.vendoUnitId !== unitId) {
+            const oldUnitIdx = this.vendoUnits.findIndex(u => u.id === old.vendoUnitId);
+            if (oldUnitIdx > -1) this.vendoUnits[oldUnitIdx].status = 'ready';
+          }
+          // Assign new unit
+          if (unit) {
+            const newUnitIdx = this.vendoUnits.findIndex(u => u.id === unit.id);
+            if (newUnitIdx > -1) this.vendoUnits[newUnitIdx].status = 'assigned';
+          }
+          this.partners[idx] = {
+            ...old,
+            name: this.form.name, area: this.form.area,
+            contactNumber: this.form.contactNumber, address: this.form.address,
+            status: this.form.status, shareRate: Number(this.form.shareRate),
+            vendoUnitId: unitId, vendoUnitName: unit ? unit.name : null,
+            vendoUnitStatus: unit ? 'assigned' : null,
+          };
+        }
+        this.showToast('Partner updated successfully.');
+      } else {
+        if (unit) {
+          const uIdx = this.vendoUnits.findIndex(u => u.id === unit.id);
+          if (uIdx > -1) this.vendoUnits[uIdx].status = 'assigned';
+        }
+        const newStatus = unitId ? 'active' : this.form.status;
+        this.partners.unshift({
+          id: Date.now(),
+          name: this.form.name, area: this.form.area,
+          contactNumber: this.form.contactNumber, address: this.form.address,
+          status: newStatus, shareRate: Number(this.form.shareRate),
+          vendoUnitId: unitId, vendoUnitName: unit ? unit.name : null,
+          vendoUnitStatus: unit ? 'assigned' : null,
+          lastCollectedAt: null,
+        });
+        this.collections[Date.now()] = [];
+        this.showToast('Partner added successfully.');
+      }
+      this.closeFormModal();
+    },
+
+    /* ═══════════════════════════════════════
+       RECORD COLLECTION MODAL (quick action from the row menu)
+       Full history, editing, and deleting of collections now
+       lives on the dedicated vendo-collection.html page.
+    ═══════════════════════════════════════ */
+    collectModalOpen: false,
+    collectPartner: null,
+    editingCollectionId: null,
+    collectForm: { date: '', totalAmount: '', partnerShare: 0, ownerAmount: 0, remarks: '' },
+
+    openRecordCollection(p) {
+      this.collectPartner = p;
+      this.editingCollectionId = null;
+      this.collectForm = {
+        date: new Date().toISOString().slice(0, 10),
+        totalAmount: '', partnerShare: 0, ownerAmount: 0, remarks: '',
+      };
+      this.errors = {};
+      this._openCollectModal();
+    },
+    _openCollectModal() {
+      this.lastFocus = document.activeElement;
+      this.collectModalOpen = true;
+      document.body.style.overflow = 'hidden';
+      this.$nextTick(() => {
+        const first = this.$refs.collectDialog?.querySelector('input, select, textarea, button');
+        if (first) first.focus();
+      });
+    },
+    closeCollectModal() {
+      this.collectModalOpen = false;
+      document.body.style.overflow = '';
+      if (this.lastFocus) this.lastFocus.focus();
+    },
+
+    calcShares() {
+      const total = Number(this.collectForm.totalAmount) || 0;
+      const rate  = this.collectPartner ? Number(this.collectPartner.shareRate) : 0;
+      const share = Math.round(total * rate) / 100;
+      this.collectForm.partnerShare = share;
+      this.collectForm.ownerAmount  = Math.round((total - share) * 100) / 100;
+    },
+
+    submitCollection() {
+      this.errors = {};
+      let ok = true;
+      if (!this.collectForm.date)  { this.errors.cDate = true; ok = false; }
+      if (!this.collectForm.totalAmount || Number(this.collectForm.totalAmount) <= 0) { this.errors.cAmount = true; ok = false; }
+      if (!ok) return;
+
+      this.calcShares();
+      const pid = this.collectPartner.id;
+
+      if (this.editingCollectionId) {
+        const bucket = this.collections[pid] || [];
+        const idx = bucket.findIndex(c => c.id === this.editingCollectionId);
+        if (idx > -1) {
+          bucket[idx] = {
+            ...bucket[idx],
+            collection_date: this.collectForm.date,
+            total_amount: Number(this.collectForm.totalAmount),
+            share_amount: this.collectForm.partnerShare,
+            owner_amount: this.collectForm.ownerAmount,
+            remarks: this.collectForm.remarks,
+          };
+        }
+        this.showToast('Collection record updated.');
+      } else {
+        if (!this.collections[pid]) this.collections[pid] = [];
+        this.collections[pid].push({
+          id: Date.now(), partner_id: pid,
+          collection_date: this.collectForm.date,
+          total_amount: Number(this.collectForm.totalAmount),
+          share_amount: this.collectForm.partnerShare,
+          owner_amount: this.collectForm.ownerAmount,
+          remarks: this.collectForm.remarks,
+        });
+        this.showToast('Collection recorded successfully.');
+      }
+
+      /* Update last_collected_at to the most recent collection date */
+      const allDates = (this.collections[pid] || []).map(c => c.collection_date);
+      const latest   = allDates.sort().reverse()[0] || null;
+      const pIdx     = this.partners.findIndex(p => p.id === pid);
+      if (pIdx > -1) this.partners[pIdx].lastCollectedAt = latest;
+
+      this.closeCollectModal();
+    },
+
+    /* ═══════════════════════════════════════
+       CONFIRM DIALOG
+    ═══════════════════════════════════════ */
+    confirmAction: null,
+
+    openDeletePartnerConfirm(p) {
+      this.confirmAction = {
+        title: 'Delete this partner?',
+        message: `Removing ${p.name} will permanently delete their record and all collection history. The assigned Vendo unit (if any) will be returned to Ready status.`,
+        confirmLabel: 'Delete Partner',
+        run: () => this.deletePartner(p),
+      };
+    },
+    runConfirmedAction() {
+      if (this.confirmAction?.run) this.confirmAction.run();
+      this.confirmAction = null;
+    },
+
+    deletePartner(p) {
+      // Release unit
+      if (p.vendoUnitId) {
+        const uIdx = this.vendoUnits.findIndex(u => u.id === p.vendoUnitId);
+        if (uIdx > -1) this.vendoUnits[uIdx].status = 'ready';
+      }
+      this.partners = this.partners.filter(x => x.id !== p.id);
+      delete this.collections[p.id];
+      this.showToast(`${p.name} deleted.`);
+    },
+
+    /* ═══════════════════════════════════════
+       UTILITIES
+    ═══════════════════════════════════════ */
+    formatNum(n) {
+      return Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
+    fmtDate(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso + 'T00:00:00');
+      return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+    },
+
+    /* Per-dialog focus trap (refs differ per modal) */
+    trapFocusDialog(e, refName) {
+      const dialog = this.$refs[refName];
+      if (!dialog) return;
+      const focusable = [...dialog.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )].filter(el => !el.disabled && el.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
+      else            { if (document.activeElement === last)  { e.preventDefault(); first.focus(); } }
+    },
+  };
+}
+</script>
+</body>
+</html>

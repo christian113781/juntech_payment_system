@@ -135,7 +135,7 @@
                 </div>
                 <p class="text-xs text-gray-400 mb-3 dark:text-gray-500" x-show="fileName">Imported from <strong class="text-gray-600 dark:text-gray-300" x-text="fileName"></strong></p>
                 <p class="text-xs mb-3" :class="codeCount ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'" x-show="parseNote" x-text="parseNote"></p>
-                <textarea rows="5" class="field font-mono text-xs resize-y dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" x-model="rawCodesText" @input.debounce.400ms="refreshPreviewQr(); if (this.codeCount) this.step = 2;" placeholder="One code per line, e.g.&#10;87242140&#10;17611984&#10;38947117"></textarea>
+                <textarea rows="5" class="field  text-xs resize-y dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" x-model="rawCodesText" @input.debounce.400ms="refreshPreviewQr(); if (this.codeCount) this.step = 2;" placeholder="One code per line, e.g.&#10;87242140&#10;17611984&#10;38947117"></textarea>
                 <div class="flex items-center justify-between mt-3">
                     <button type="button" @click="startOver()" class="text-xs font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400">← Import a different PDF</button>
                     <label for="pdf-input-2" class="text-xs font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 cursor-pointer">
@@ -257,7 +257,7 @@
                     </div>
 
                     <p class="text-xs text-gray-400 mt-3 text-center dark:text-gray-500">
-                        QR value = the voucher code shown above (<span class="font-mono font-semibold text-gray-500" x-text="sampleCode"></span>).
+                        QR value = the voucher code shown above (<span class="font-semibold text-gray-500" x-text="sampleCode"></span>).
                     </p>
                 </div>
             </div>

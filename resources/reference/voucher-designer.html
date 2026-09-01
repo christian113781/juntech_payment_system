@@ -413,7 +413,7 @@
               Imported from <strong class="text-gray-600" x-text="fileName"></strong>
             </p>
             <p class="text-xs mb-3" :class="codeCount ? 'text-emerald-600' : 'text-amber-600'" x-show="parseNote" x-text="parseNote"></p>
-            <textarea rows="5" class="field font-mono text-xs resize-y"
+            <textarea rows="5" class="field  text-xs resize-y"
                       x-model="rawCodesText"
                       @input.debounce.400ms="refreshPreviewQr(); if (this.codeCount) this.step = 2;"
                       placeholder="One code per line, e.g.&#10;87242140&#10;17611984&#10;38947117"></textarea>
@@ -543,7 +543,7 @@
               </div>
 
               <p class="text-xs text-gray-400 mt-3 text-center">
-                QR value = the voucher code shown above (<span class="font-mono font-semibold text-gray-500" x-text="sampleCode"></span>).
+                QR value = the voucher code shown above (<span class=" font-semibold text-gray-500" x-text="sampleCode"></span>).
                 Every other card in the export looks identical — only the code and QR change.
               </p>
             </div>

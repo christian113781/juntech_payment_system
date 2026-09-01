@@ -41,6 +41,10 @@ body { font-family: 'Poppins', sans-serif; background: #f8f9fc; overflow-x: hidd
 
 .sidebar-scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c7d7fd transparent; }
 
+/* add breathing room between sidebar sections */
+.sidebar-scroll > div + div { margin-top: .75rem; }
+.nav-section-label + ul { margin-bottom: .25rem; }
+
 /* ── header sidebar-toggle btn ────────────────── */
 #collapse-btn.is-collapsed { color: #4f46e5; background: #f0f4ff; }
 
@@ -202,3 +206,136 @@ body { font-family: 'Poppins', sans-serif; background: #f8f9fc; overflow-x: hidd
 
 /* ── Alpine cloak ─────────────────────────────── */
 [x-cloak] { display: none !important; }
+/* ══════════════════════════════════════════════
+   DARK MODE
+   Toggled by adding .dark to <html>
+══════════════════════════════════════════════ */
+
+/* ── base surfaces ── */
+.dark body                { background: #0f1117; color: #e2e8f0; }
+.dark #sidebar            { background: #1a1d27; border-color: #2d3148; }
+.dark #sidebar .logo-wrap { border-color: #2d3148; }
+.dark #sidebar .nav-section-label { color: #6b7280; }
+.dark #sidebar .nav-link  { color: #cbd5e1; }
+.dark #sidebar .nav-link:hover { background: rgba(99,102,241,.15); color: #a5b4fc; }
+.dark #sidebar .nav-link[aria-current="page"] { background: rgba(99,102,241,.2); color: #a5b4fc; }
+.dark #sidebar .user-info p:first-child { color: #e2e8f0; }
+.dark #sidebar .user-info p:last-child  { color: #6b7280; }
+.dark #sidebar .border-t  { border-color: #2d3148; }
+
+/* ── header ── */
+.dark header              { background: #1a1d27; border-color: #2d3148; }
+.dark #global-search      { background: #12151f; border-color: #2d3148; color: #e2e8f0; }
+.dark #global-search:focus{ background: #12151f; border-color: #6366f1; }
+.dark #global-search::placeholder { color: #4b5563; }
+.dark header button       { color: #94a3b8; }
+.dark header button:hover { background: rgba(255,255,255,.07); }
+.dark #collapse-btn.is-collapsed { background: rgba(99,102,241,.15); color: #818cf8; }
+
+/* ── notification & profile panels ── */
+.dark #notif-panel,
+.dark #profile-panel      { background: #1e2133; border-color: #2d3148; }
+.dark #notif-panel .border-b,
+.dark #profile-panel .border-b,
+.dark #notif-panel .border-t,
+.dark #profile-panel .border-t { border-color: #2d3148; }
+.dark #notif-panel h2,
+.dark #profile-panel p:first-child { color: #e2e8f0; }
+.dark #notif-panel li button:hover,
+.dark #profile-panel a:hover { background: rgba(255,255,255,.06); }
+.dark #notif-panel .bg-brand-50\/40 { background: rgba(99,102,241,.1); }
+
+/* ── toast ── */
+.dark #toast              { background: #1e2133; }
+
+/* ── cards / panels ── */
+.dark .bg-white           { background: #1e2133 !important; }
+.dark .bg-gray-50         { background: #12151f !important; }
+.dark .bg-gray-50\/60     { background: rgba(18,21,31,.6) !important; }
+.dark .border-gray-100    { border-color: #2d3148 !important; }
+.dark .border-gray-200    { border-color: #374151 !important; }
+.dark .divide-gray-50     > * + * { border-color: #2a2e45 !important; }
+
+/* ── text ── */
+.dark .text-gray-900      { color: #f1f5f9 !important; }
+.dark .text-gray-800      { color: #e2e8f0 !important; }
+.dark .text-gray-700      { color: #cbd5e1 !important; }
+.dark .text-gray-600      { color: #94a3b8 !important; }
+.dark .text-gray-500      { color: #6b7280 !important; }
+.dark .text-gray-400      { color: #4b5563 !important; }
+
+/* ── table rows ── */
+.dark tbody tr:hover { background: rgba(255,255,255,.03) !important; }
+.dark thead tr       { border-color: #2d3148; }
+
+/* ── form fields ── */
+.dark .field {
+  background: #12151f !important;
+  border-color: #374151 !important;
+  color: #e2e8f0 !important;
+}
+.dark .field:focus { border-color: #6366f1 !important; }
+.dark .field option { background: #1e2133; }
+
+/* ── modal ── */
+.dark #modal-dialog       { background: #1e2133; }
+.dark #modal-dialog .border-b,
+.dark #modal-dialog .border-t { border-color: #2d3148; }
+.dark #modal-dialog .sticky.bg-white,
+.dark #modal-dialog .sticky.rounded-b-\[1\.25rem\] { background: #1e2133 !important; }
+.dark #modal-dialog .bg-gray-50\/60 { background: rgba(18,21,31,.8) !important; }
+.dark #modal-dialog .bg-gray-50  { background: #12151f !important; }
+
+/* ── delete dialog ── */
+.dark .bg-white.rounded-2xl { background: #1e2133 !important; }
+
+/* ── stat card hover ── */
+.dark .stat-card:hover { box-shadow: 0 4px 20px 0 rgba(99,102,241,.25); }
+
+/* ── upload zone ── */
+.dark .upload-zone { border-color: #374151; }
+.dark .upload-zone:hover { border-color: #6366f1; background: rgba(99,102,241,.08); }
+
+/* ── footer ── */
+.dark footer { border-color: #2d3148; }
+
+/* ── misc utility overrides ── */
+.dark .shadow-card { box-shadow: 0 1px 4px 0 rgba(0,0,0,.4), 0 4px 16px 0 rgba(0,0,0,.3); }
+.dark .bg-brand-50  { background: rgba(99,102,241,.12) !important; }
+.dark .bg-emerald-50 { background: rgba(16,185,129,.12) !important; }
+.dark .bg-amber-50   { background: rgba(245,158,11,.12) !important; }
+.dark .bg-violet-50  { background: rgba(139,92,246,.12) !important; }
+.dark .bg-red-50     { background: rgba(239,68,68,.12) !important; }
+
+/* ── dark toggle button animation ── */
+.dark-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 2.25rem; height: 2.25rem; border-radius: .5rem;
+  transition: background .15s, color .15s;
+  position: relative; overflow: hidden;
+}
+.dark-toggle svg { transition: transform .3s, opacity .3s; position: absolute; }
+.dark-toggle .icon-sun  { opacity: 1; transform: rotate(0deg) scale(1); }
+.dark-toggle .icon-moon { opacity: 0; transform: rotate(90deg) scale(.5); }
+.dark .dark-toggle .icon-sun  { opacity: 0; transform: rotate(-90deg) scale(.5); }
+.dark .dark-toggle .icon-moon { opacity: 1; transform: rotate(0deg) scale(1); }
+
+/* ── profile page ── */
+.profile-avatar-ring {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  padding: 3px; border-radius: 9999px;
+}
+.dark .profile-avatar-ring { background: linear-gradient(135deg, #818cf8, #6366f1); }
+
+.profile-stat {
+  transition: transform .2s, box-shadow .2s;
+}
+@media (hover: hover) and (pointer: fine) {
+  .profile-stat:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,.18); }
+}
+.dark .profile-stat:hover { box-shadow: 0 8px 24px rgba(99,102,241,.3); }
+
+.activity-dot {
+  width: .625rem; height: .625rem; border-radius: 9999px;
+  flex-shrink: 0; margin-top: .3rem;
+}
