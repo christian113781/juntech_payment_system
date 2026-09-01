@@ -26,6 +26,11 @@ use App\Livewire\Admin\VendoCollection\Index as VendoCollectionsIndex;
 use App\Livewire\Admin\Category\Index as CategoriesIndex;
 use App\Livewire\Admin\StockMovement\Index as StockMovementsIndex;
 
+use App\Livewire\Admin\Employee\Index as EmployeesIndex;
+use App\Livewire\Admin\Employee\CashAdvance\Index as EmployeeCashAdvancesIndex;
+
+use App\Livewire\Admin\Expenses\Index as ExpensesIndex;
+
 Route::view('/', 'welcome');
 
 // Route::view('dashboard', 'dashboard')
@@ -57,6 +62,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/vendo-units', VendoUnitsIndex::class)->name('vendo-units.index');
     Route::get('/vendo-partners', VendoPartnersIndex::class)->name('vendo-partners.index');
     Route::get('/vendo-partners/{partner}/collections', VendoCollectionsIndex::class)->name('vendo-collections.index');
+
+    Route::get('/employees', EmployeesIndex::class)->name('employees.index');
+    Route::get('/employees/{employee}/cash-advances', EmployeeCashAdvancesIndex::class)->name('employee-cash-advances.index');
+
+    Route::get('/expenses', ExpensesIndex::class)->name('expenses.index');
 });
 
 Route::view('/pos', 'temp.placeholder', ['title' => 'Point of Sale'])->name('pos');
