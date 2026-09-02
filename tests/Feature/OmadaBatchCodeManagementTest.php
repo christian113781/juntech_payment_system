@@ -33,7 +33,7 @@ class OmadaBatchCodeManagementTest extends TestCase
     public function test_omada_batch_code_page_can_create_a_batch(): void
     {
         $area = Area::factory()->create(['name' => 'Davao']);
-        $partner = OmadaPartner::factory()->create(['area_id' => $area->id]);
+        $partner = OmadaPartner::factory()->create(['area_id' => $area->id, 'name' => 'NetLink']);
 
         Livewire::test('admin.omada-batch-code.index', ['partner' => $partner])
             ->set('type', 'SALE')
@@ -51,6 +51,12 @@ class OmadaBatchCodeManagementTest extends TestCase
             'price_per_voucher' => 10,
             'status' => 'pending',
         ]);
+
+        $batch = OmadaVoucherBatch::where('partner_id', $partner->id)->latest('id')->firstOrFail();
+        $this->assertMatchesRegularExpression(
+            '/^NE-'.now()->format('Ymd').'-[0-9]{6}$/',
+            $batch->batch_code
+        );
     }
 
     public function test_omada_batch_code_status_can_be_updated_and_paid_with_collection_details(): void

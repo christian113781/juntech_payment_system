@@ -13,7 +13,7 @@
         </div>
         <div class="logo-text min-w-0">
             <p class="text-sm font-bold text-gray-900 dark:text-white leading-tight whitespace-nowrap">StockMaster</p>
-            <p class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">Inventory Pro</p>
+            <p class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">Juntech System</p>
         </div>
     </div>
 
@@ -53,6 +53,47 @@
                             d="M9 18l-6 2V6l6-2 6 2 6-2v14l-6 2-6-2zm0-14v14m6-12v14" />
                     </svg>
                     <span class="nav-label truncate">Areas</span>
+                </a>
+            </li>
+
+        </ul>
+
+
+        <p
+            class="nav-section-label px-3 mb-2 mt-4 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+            Billing & Customers
+        </p>
+        <ul class="space-y-0.5">
+
+            <li>
+                <a href="{{ route('customers.index') }}"
+                    class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors
+                  {{ request()->routeIs('customers.index') ? 'bg-brand-50 text-brand-700 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700' }}"
+                    @if (request()->routeIs('customers.index')) aria-current="page" @endif>
+                    <svg class="w-5 h-5 flex-shrink-0 transition duration-75
+                      {{ request()->routeIs('customers.index') ? 'text-brand-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white' }}"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5z" />
+                    </svg>
+                    <span class="nav-label truncate">Customers</span>
+                </a>
+            </li>
+
+
+
+            <li>
+                <a href="{{ route('billings.index') }}"
+                    class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors
+                  {{ request()->routeIs('billings.index') ? 'bg-brand-50 text-brand-700 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700' }}"
+                    @if (request()->routeIs('billings.index')) aria-current="page" @endif>
+                    <svg class="w-5 h-5 flex-shrink-0 transition duration-75
+                      {{ request()->routeIs('billings.index') ? 'text-brand-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white' }}"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 17v-2m3 2v-4m3 4V7m-9 10h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <span class="nav-label truncate">Billing</span>
                 </a>
             </li>
 

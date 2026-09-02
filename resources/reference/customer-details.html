@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Customer Details — Billing Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <!-- Shared dashboard logic (sidebar, toast, notifications, modal plumbing, date/currency helpers) -->
+  <script src="assets/js/main.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { poppins: ['Poppins', 'sans-serif'] },
+          colors: {
+            brand: {
+              50:  '#f0f4ff', 100: '#e0eaff', 200: '#c7d7fd',
+              400: '#818cf8', 500: '#6366f1', 600: '#4f46e5',
+              700: '#4338ca', 900: '#1e1b4b',
+            },
+          },
+          boxShadow: {
+            card: '0 1px 4px 0 rgba(99,102,241,.08), 0 4px 16px 0 rgba(99,102,241,.06)',
+          },
+        }
+      }
+    }
+  </script>
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="font-poppins text-gray-800 antialiased" x-data="customerDetailsPage()" x-init="init()" x-cloak>
+
+<a href="#main" class="skip-link">Skip to main content</a>
+
+<!-- ════ MOBILE OVERLAY ════ -->
+<div id="sidebar-overlay"
+     class="fixed inset-0 bg-gray-900/50 z-20 lg:hidden"
+     aria-hidden="true"
+     x-show="mobileOpen"
+     x-transition.opacity
+     @click="closeMobileSidebar()"
+     style="display:none"></div>
+
+<!-- ════ TOAST ════ -->
+<div id="toast" role="status" aria-live="polite" aria-atomic="true" :class="{ show: toast.show }">
+  <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+  </svg>
+  <span x-text="toast.msg">Done</span>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     MODAL — Record / Edit Payment (locked to this customer's outstanding billing)
+════════════════════════════════════════════════ -->
+<div id="modal-backdrop"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-title"
+     aria-describedby="modal-desc"
+     :class="{ open: modalOpen }"
+     @keydown.escape="closeModal()"
+     @click="if ($event.target.id === 'modal-backdrop') closeModal()">
+
+  <div id="modal-dialog" x-ref="dialog" @keydown.tab="trapFocus($event)">
+
+    <!-- Modal header -->
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-[1.25rem]">
+      <div>
+        <h2 id="modal-title" class="text-lg font-bold text-gray-900">Record Payment</h2>
+        <p id="modal-desc" class="text-xs text-gray-400 mt-0.5">Apply a payment to this customer's current billing</p>
+      </div>
+      <button type="button" @click="closeModal()"
+              class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              aria-label="Close dialog">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Form body -->
+    <form @submit.prevent="submitPayment()" novalidate>
+      <div class="px-6 py-5 space-y-4">
+
+        <!-- Selected billing summary -->
+        <div x-show="currentBilling" class="bg-gray-50 rounded-xl px-4 py-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-bold text-gray-900" x-text="customer?.name"></p>
+            <span class="badge" :class="statusStyle(currentBilling?.status)">
+              <span class="badge-dot" :class="statusDot(currentBilling?.status)" aria-hidden="true"></span>
+              <span x-text="statusLabel(currentBilling?.status)"></span>
+            </span>
+          </div>
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+            <dt class="text-gray-500">Billing Period</dt>
+            <dd class="text-gray-800 font-medium text-end" x-text="currentBilling ? formatDate(currentBilling.periodStart) + ' – ' + formatDate(currentBilling.periodEnd) : '—'"></dd>
+            <dt class="text-gray-500">Due Date</dt>
+            <dd class="text-gray-800 font-medium text-end" x-text="currentBilling ? formatDate(currentBilling.dueDate) : '—'"></dd>
+            <dt class="text-gray-500">Amount Due</dt>
+            <dd class="text-gray-800 font-medium text-end" x-text="currentBilling ? pesoFmt(currentBilling.amountDue) : '—'"></dd>
+            <dt class="text-gray-500">Already Paid</dt>
+            <dd class="text-gray-800 font-medium text-end" x-text="currentBilling ? pesoFmt(currentBilling.amountPaid) : '—'"></dd>
+            <dt class="text-gray-600 font-semibold">Remaining Balance</dt>
+            <dd class="text-gray-900 font-bold text-end" x-text="pesoFmt(payMaxAmount)"></dd>
+          </dl>
+        </div>
+        <div x-show="!currentBilling" class="bg-amber-50 rounded-xl px-4 py-3 text-xs text-amber-700">
+          This customer has no outstanding billing to pay right now.
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="p-amount" class="block text-xs font-semibold text-gray-600 mb-1.5">
+              Payment Amount <span aria-hidden="true" class="text-red-500">*</span><span class="sr-only">(required)</span>
+            </label>
+            <div class="relative">
+              <span class="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">₱</span>
+              <input id="p-amount" type="number" min="0.01" step="0.01" class="field ps-7" :class="{ error: payErrors.amount }"
+                     x-model.number="payForm.amount" :disabled="!currentBilling" placeholder="0.00" required
+                     aria-describedby="p-amount-err">
+            </div>
+            <p id="p-amount-err" class="mt-1 text-xs text-red-500" role="alert" x-show="payErrors.amount">
+              <span x-text="payErrors.amountMsg || 'Enter a valid payment amount.'"></span>
+            </p>
+          </div>
+          <div>
+            <label for="p-date" class="block text-xs font-semibold text-gray-600 mb-1.5">
+              Payment Date <span aria-hidden="true" class="text-red-500">*</span><span class="sr-only">(required)</span>
+            </label>
+            <input id="p-date" type="date" class="field" :class="{ error: payErrors.date }"
+                   x-model="payForm.date" :disabled="!currentBilling" required aria-describedby="p-date-err">
+            <p id="p-date-err" class="mt-1 text-xs text-red-500" role="alert" x-show="payErrors.date">Pick the date this payment was received.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="p-method" class="block text-xs font-semibold text-gray-600 mb-1.5">Payment Method</label>
+            <select id="p-method" class="field" x-model="payForm.method" :disabled="!currentBilling">
+              <option value="Cash">Cash</option>
+              <option value="GCash">GCash</option>
+            </select>
+          </div>
+          <div>
+            <label for="p-ref" class="block text-xs font-semibold text-gray-600 mb-1.5">Reference Number</label>
+            <input id="p-ref" type="text" class="field" x-model.trim="payForm.reference" :disabled="!currentBilling"
+                   placeholder="e.g. GC-88213" autocomplete="off">
+          </div>
+        </div>
+
+        <div>
+          <label for="p-remarks" class="block text-xs font-semibold text-gray-600 mb-1.5">Remarks</label>
+          <textarea id="p-remarks" rows="2" class="field resize-none" x-model.trim="payForm.remarks" :disabled="!currentBilling"
+                    placeholder="Optional notes about this payment…"></textarea>
+        </div>
+
+        <div x-show="currentBilling && payForm.amount && Number(payForm.amount) < payMaxAmount"
+             class="bg-amber-50 rounded-xl px-4 py-3 text-xs text-amber-700 flex items-start gap-2">
+          <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>This is a partial payment. The billing will stay <strong>Partial</strong> and the next billing cycle won't move until it's fully paid.</span>
+        </div>
+        <div x-show="currentBilling && payForm.amount && Number(payForm.amount) >= payMaxAmount && payMaxAmount > 0"
+             class="bg-emerald-50 rounded-xl px-4 py-3 text-xs text-emerald-700 flex items-start gap-2">
+          <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <span>This fully settles the billing. The next cycle will be due
+            <strong x-text="customer ? formatDate(addDays(payForm.date || currentBilling.dueDate, customer.billingCycleDays)) : ''"></strong>.
+          </span>
+        </div>
+
+      </div>
+
+      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 sticky bottom-0 bg-white rounded-b-[1.25rem]">
+        <button type="button" @click="closeModal()"
+                class="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-100 transition-colors min-h-[44px]">
+          Cancel
+        </button>
+        <button type="submit" :disabled="!currentBilling"
+                class="px-6 py-2.5 rounded-xl text-sm font-semibold bg-brand-600 text-white hover:bg-brand-700 transition-colors shadow-sm min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed">
+          Save Payment
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     LAYOUT SHELL
+════════════════════════════════════════════════ -->
+<div class="flex min-h-[100dvh]">
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside id="sidebar"
+         aria-label="Primary navigation"
+         class="bg-white flex flex-col shadow-card flex-shrink-0 relative z-30"
+         :class="{ collapsed: sidebarCollapsed, 'mobile-open': mobileOpen }">
+
+    <div class="logo-wrap flex items-center gap-3 px-6 py-5 border-b border-gray-100 flex-shrink-0">
+      <div class="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      </div>
+      <div class="logo-text min-w-0">
+        <p class="text-sm font-bold text-gray-900 leading-tight whitespace-nowrap">StockMaster</p>
+        <p class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">Billing Admin</p>
+      </div>
+    </div>
+
+    <nav class="flex-1 sidebar-scroll py-3 px-2" aria-label="Primary">
+      <template x-for="section in navSections" :key="section.label">
+        <div>
+          <p class="nav-section-label px-3 mb-2 mt-4 first:mt-0 text-[10px] font-semibold text-gray-400 uppercase tracking-wider" x-text="section.label"></p>
+          <ul class="space-y-0.5" role="list">
+            <template x-for="item in section.items" :key="item.name">
+              <li>
+                <a :href="item.href"
+                   class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors"
+                   :class="item.disabled ? 'is-disabled' : 'text-gray-700 hover:bg-brand-50 hover:text-brand-700'"
+                   :aria-current="item.active ? 'page' : null"
+                   :aria-disabled="item.disabled ? 'true' : null"
+                   :tabindex="item.disabled ? -1 : 0"
+                   :title="item.name">
+                  <svg class="w-5 h-5 flex-shrink-0" :class="item.active ? 'text-brand-500' : (item.disabled ? 'text-gray-300' : 'text-gray-400')" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon"/>
+                  </svg>
+                  <span class="nav-label flex-1" x-text="item.name"></span>
+                  <span class="nav-label soon-pill" x-show="item.disabled">SOON</span>
+                </a>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </template>
+    </nav>
+
+    <div class="border-t border-gray-100 px-3 py-4 flex-shrink-0">
+      <div class="user-wrap flex items-center gap-3">
+        <div class="user-avatar w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold" aria-hidden="true">JD</div>
+        <div class="user-info min-w-0">
+          <p class="text-sm font-semibold text-gray-800 truncate">Juan Dela Cruz</p>
+          <p class="text-[11px] text-gray-400 truncate">Administrator</p>
+        </div>
+        <button class="user-info ms-auto p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" aria-label="Sign out">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN COLUMN ══ -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- ════ HEADER ════ -->
+    <header class="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-sm">
+      <div class="flex items-center gap-3 px-4 sm:px-6 py-3.5">
+        <button id="collapse-btn"
+                class="hidden lg:flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-brand-600 transition-colors flex-shrink-0"
+                :class="{ 'is-collapsed': sidebarCollapsed }"
+                @click="sidebarCollapsed = !sidebarCollapsed"
+                :aria-expanded="(!sidebarCollapsed).toString()" aria-controls="sidebar"
+                :aria-label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v18"/>
+          </svg>
+        </button>
+        <button id="menu-btn"
+                class="lg:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                @click="mobileOpen ? closeMobileSidebar() : openMobileSidebar()"
+                :aria-expanded="mobileOpen.toString()" aria-controls="sidebar"
+                :aria-label="mobileOpen ? 'Close navigation menu' : 'Open navigation menu'">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+        <div class="flex-1 min-w-0">
+          <nav aria-label="Breadcrumb" class="text-sm">
+            <ol class="flex items-center gap-1.5 text-gray-400">
+              <li><a href="customers.html" class="hover:text-brand-600 font-medium">Customers</a></li>
+              <li aria-hidden="true">/</li>
+              <li class="text-gray-700 font-semibold truncate" x-text="customer ? customer.name : 'Customer'"></li>
+            </ol>
+          </nav>
+        </div>
+        <div class="flex items-center gap-2 ms-auto">
+          <button @click="toggleDark()"
+                  class="dark-toggle text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10"
+                  :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
+            <svg class="icon-sun w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            <svg class="icon-moon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+            </svg>
+          </button>
+          <div class="relative">
+            <button @click="profileOpen = !profileOpen"
+                    class="flex items-center gap-2 p-1 pe-2 rounded-full hover:bg-gray-100 transition-colors"
+                    aria-haspopup="true" :aria-expanded="profileOpen.toString()" aria-controls="profile-panel"
+                    aria-label="Account menu for Juan Dela Cruz">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0" aria-hidden="true">JD</div>
+              <svg class="w-3.5 h-3.5 text-gray-400 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="profile-panel" role="menu" aria-label="Account menu"
+                 x-show="profileOpen" x-transition
+                 @click.outside="profileOpen = false" @keydown.escape="profileOpen = false"
+                 class="absolute end-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-card border border-gray-100 z-40 overflow-hidden"
+                 style="display:none">
+              <ul class="py-1.5" role="list">
+                <li><a href="#" role="menuitem" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">My Profile</a></li>
+                <li><a href="#" role="menuitem" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Account Settings</a></li>
+              </ul>
+              <div class="border-t border-gray-100 py-1.5">
+                <button role="menuitem" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">Sign Out</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ════ MAIN PAGE ════ -->
+    <main id="main" tabindex="-1" class="flex-1 px-4 sm:px-6 py-6 space-y-6 max-w-[1600px] mx-auto w-full">
+
+      <!-- ═══ NOT FOUND ═══ -->
+      <template x-if="!customer">
+        <div class="bg-white rounded-2xl shadow-card p-10 text-center">
+          <div class="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4" aria-hidden="true">
+            <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </div>
+          <h1 class="text-lg font-bold text-gray-900">Customer not found</h1>
+          <p class="text-sm text-gray-500 mt-2">We couldn't find a customer with id <strong x-text="customerId ?? '—'"></strong>.</p>
+          <a href="customers.html" class="inline-flex items-center gap-2 mt-6 px-5 py-2.5 rounded-xl text-sm font-semibold bg-brand-600 text-white hover:bg-brand-700 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            Back to Customers
+          </a>
+        </div>
+      </template>
+
+      <!-- ═══ CUSTOMER FOUND ═══ -->
+      <template x-if="customer">
+        <div class="space-y-6">
+
+          <!-- Page header -->
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="flex items-center gap-4 min-w-0">
+              <a href="customers.html"
+                 class="flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 text-gray-500 hover:text-brand-600 hover:border-brand-200 hover:bg-brand-50 transition-colors flex-shrink-0"
+                 aria-label="Back to Customers">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+              </a>
+              <div class="w-12 h-12 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0 text-sm font-bold" aria-hidden="true" x-text="initials(customer.name)"></div>
+              <div class="min-w-0">
+                <h1 class="text-xl sm:text-2xl font-bold text-gray-900 truncate" x-text="customer.name"></h1>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="badge" :class="customer.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'">
+                    <span class="badge-dot" :class="customer.status === 'Active' ? 'bg-emerald-500' : 'bg-gray-400'" aria-hidden="true"></span>
+                    <span x-text="customer.status"></span>
+                  </span>
+                  <span class="text-sm text-gray-400" x-text="customer.area"></span>
+                </div>
+              </div>
+            </div>
+            <button @click="openPayModal()" :disabled="!currentBilling"
+                    class="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Add Payment
+            </button>
+          </div>
+
+          <!-- Customer info + summary cards -->
+          <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+            <!-- Customer information -->
+            <div class="bg-white rounded-2xl shadow-card p-5 lg:col-span-2">
+              <h2 class="text-sm font-bold text-gray-900 mb-3">Customer Information</h2>
+              <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div>
+                  <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Service</dt>
+                  <dd class="text-gray-800 font-medium mt-0.5" x-text="customer.service"></dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Area</dt>
+                  <dd class="text-gray-800 font-medium mt-0.5" x-text="customer.area"></dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Monthly Price</dt>
+                  <dd class="text-gray-800 font-medium mt-0.5" x-text="pesoFmt(customer.monthlyPrice)"></dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Billing Cycle</dt>
+                  <dd class="text-gray-800 font-medium mt-0.5" x-text="customer.billingCycleDays + ' days'"></dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Contact Number</dt>
+                  <dd class="text-gray-800 font-medium mt-0.5" x-text="customer.contactNumber || '—'"></dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Billing Start Date</dt>
+                  <dd class="text-gray-800 font-medium mt-0.5" x-text="formatDate(customer.billingStartDate)"></dd>
+                </div>
+                <div class="sm:col-span-2">
+                  <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Address</dt>
+                  <dd class="text-gray-800 font-medium mt-0.5" x-text="customer.address || '—'"></dd>
+                </div>
+                <div class="sm:col-span-2" x-show="customer.remarks">
+                  <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Remarks</dt>
+                  <dd class="text-gray-600 mt-0.5" x-text="customer.remarks"></dd>
+                </div>
+              </dl>
+            </div>
+
+            <!-- Quick stats -->
+            <div class="grid grid-cols-1 gap-4">
+              <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+                  <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Current Billing</p>
+                  <p class="text-lg font-bold text-gray-900" x-text="currentBilling ? pesoFmt(currentBilling.amountDue) : '—'"></p>
+                </div>
+              </div>
+              <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+                  <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Current Balance</p>
+                  <p class="text-lg font-bold text-gray-900" x-text="currentBilling ? pesoFmt(currentBilling.balance) : pesoFmt(0)"></p>
+                </div>
+              </div>
+              <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+                  <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Billing Due</p>
+                  <p class="text-lg font-bold text-gray-900" x-text="currentBilling ? formatDate(currentBilling.dueDate) : '—'"></p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Current Billing -->
+          <section class="bg-white rounded-2xl shadow-card p-5" x-show="currentBilling">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-sm font-bold text-gray-900">Current Billing</h2>
+              <span class="badge" :class="statusStyle(currentBilling?.status)">
+                <span class="badge-dot" :class="statusDot(currentBilling?.status)" aria-hidden="true"></span>
+                <span x-text="statusLabel(currentBilling?.status)"></span>
+              </span>
+            </div>
+            <dl class="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
+              <div>
+                <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Billing Period</dt>
+                <dd class="text-gray-800 font-medium mt-0.5" x-text="currentBilling ? formatDate(currentBilling.periodStart) + ' – ' + formatDate(currentBilling.periodEnd) : '—'"></dd>
+              </div>
+              <div>
+                <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Due Date</dt>
+                <dd class="text-gray-800 font-medium mt-0.5" x-text="currentBilling ? formatDate(currentBilling.dueDate) : '—'"></dd>
+              </div>
+              <div>
+                <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Amount Due</dt>
+                <dd class="text-gray-800 font-medium mt-0.5" x-text="currentBilling ? pesoFmt(currentBilling.amountDue) : '—'"></dd>
+              </div>
+              <div>
+                <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Amount Paid</dt>
+                <dd class="text-gray-800 font-medium mt-0.5" x-text="currentBilling ? pesoFmt(currentBilling.amountPaid) : '—'"></dd>
+              </div>
+              <div>
+                <dt class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Remaining Balance</dt>
+                <dd class="text-gray-900 font-bold mt-0.5" x-text="currentBilling ? pesoFmt(currentBilling.balance) : '—'"></dd>
+              </div>
+            </dl>
+          </section>
+          <section class="bg-white rounded-2xl shadow-card p-5 text-sm text-gray-500" x-show="!currentBilling">
+            No outstanding billing right now — this customer is fully paid up.
+          </section>
+
+          <!-- Billing History -->
+          <section aria-labelledby="bh-heading" class="bg-white rounded-2xl shadow-card">
+            <div class="px-5 py-4 border-b border-gray-100">
+              <h2 id="bh-heading" class="text-sm font-bold text-gray-900">Billing History</h2>
+              <p class="text-xs text-gray-400 mt-0.5">Every billing cycle for this customer. Historical records are never overwritten.</p>
+            </div>
+            <div class="tbl-wrap" tabindex="0" role="region" aria-labelledby="bh-heading">
+              <table class="w-full text-sm" style="min-inline-size:44rem">
+                <thead>
+                  <tr class="text-left border-b border-gray-100">
+                    <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Billing Period</th>
+                    <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Due Date</th>
+                    <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Amount Due</th>
+                    <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Paid</th>
+                    <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Balance</th>
+                    <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                  <template x-for="b in customerBillings" :key="b.id">
+                    <tr class="hover:bg-gray-50/60 transition-colors">
+                      <td class="px-5 py-3 text-gray-700 whitespace-nowrap" x-text="formatDate(b.periodStart) + ' – ' + formatDate(b.periodEnd)"></td>
+                      <td class="px-5 py-3 text-gray-700 whitespace-nowrap" x-text="formatDate(b.dueDate)"></td>
+                      <td class="px-5 py-3 text-end font-semibold text-gray-700" x-text="pesoFmt(b.amountDue)"></td>
+                      <td class="px-5 py-3 text-end text-gray-700" x-text="pesoFmt(b.amountPaid)"></td>
+                      <td class="px-5 py-3 text-end font-semibold" :class="b.balance > 0 ? 'text-gray-900' : 'text-gray-400'" x-text="pesoFmt(b.balance)"></td>
+                      <td class="px-5 py-3">
+                        <span class="badge" :class="statusStyle(b.status)">
+                          <span class="badge-dot" :class="statusDot(b.status)" aria-hidden="true"></span>
+                          <span x-text="statusLabel(b.status)"></span>
+                        </span>
+                      </td>
+                    </tr>
+                  </template>
+                  <tr x-show="customerBillings.length === 0">
+                    <td colspan="6" class="px-5 py-10 text-center text-sm text-gray-400">No billing records yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Payment History -->
+          <section aria-labelledby="ph-heading" class="bg-white rounded-2xl shadow-card">
+            <div class="px-5 py-4 border-b border-gray-100">
+              <h2 id="ph-heading" class="text-sm font-bold text-gray-900">Payment History</h2>
+              <p class="text-xs text-gray-400 mt-0.5">Actual payments received. A payment date can differ from the billing period it's applied to.</p>
+            </div>
+            <div class="tbl-wrap" tabindex="0" role="region" aria-labelledby="ph-heading">
+              <table class="w-full text-sm" style="min-inline-size:44rem">
+                <thead>
+                  <tr class="text-left border-b border-gray-100">
+                    <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Payment Date</th>
+                    <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Amount</th>
+                    <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Applied Billing</th>
+                    <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Method</th>
+                    <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Reference</th>
+                    <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                  <template x-for="p in customerPayments" :key="p.id">
+                    <tr class="hover:bg-gray-50/60 transition-colors">
+                      <td class="px-5 py-3 text-gray-700 whitespace-nowrap" x-text="formatDate(p.date)"></td>
+                      <td class="px-5 py-3 text-end font-semibold text-gray-700" x-text="pesoFmt(p.amount)"></td>
+                      <td class="px-5 py-3 text-gray-700 whitespace-nowrap" x-text="p.billingPeriod"></td>
+                      <td class="px-5 py-3 text-gray-700" x-text="p.method"></td>
+                      <td class="px-5 py-3 text-gray-500" x-text="p.reference || '—'"></td>
+                      <td class="px-5 py-3 text-gray-500" x-text="p.remarks || '—'"></td>
+                    </tr>
+                  </template>
+                  <tr x-show="customerPayments.length === 0">
+                    <td colspan="6" class="px-5 py-10 text-center text-sm text-gray-400">No payments recorded yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+        </div>
+      </template>
+
+    </main>
+  </div>
+</div>
+
+<script>
+function customerDetailsPage() {
+  return {
+    ...sharedChrome('customers.html'),
+    pesoFmt, formatDate, addDays, parseDate, isPastDate,
+
+    /* ── customer directory (mirrors the `customers` table) ────── */
+    customers: [
+      { id: 1, name: 'John Dela Cruz',  service: 'Internet',                area: 'Tagum',        contactNumber: '0917 555 0142', address: 'Purok 3, Mankilam, Tagum City', monthlyPrice: 600,  billingCycleDays: 32, billingStartDate: '2026-09-02', status: 'Active',       remarks: '' },
+      { id: 2, name: 'Maria Santos',    service: 'Internet + CCTV',         area: 'Tagum',        contactNumber: '0918 220 4471', address: 'Magugpo West, Tagum City',      monthlyPrice: 900,  billingCycleDays: 30, billingStartDate: '2026-08-06', status: 'Active',       remarks: '' },
+      { id: 3, name: 'Pedro Reyes',     service: 'Internet',                area: 'New Corella',  contactNumber: '0920 331 8890', address: 'Poblacion, New Corella',        monthlyPrice: 600,  billingCycleDays: 32, billingStartDate: '2026-08-01', status: 'Disconnected', remarks: 'Requested disconnection — moving out of area.' },
+      { id: 4, name: 'Ana Garcia',      service: 'Internet',                area: 'New Corella',  contactNumber: '0916 774 2205', address: 'Sto. Niño, New Corella',        monthlyPrice: 700,  billingCycleDays: 31, billingStartDate: '2026-09-03', status: 'Active',       remarks: '' },
+      { id: 5, name: 'Roberto Tan',     service: 'Internet + CCTV + Other', area: 'Carmen',       contactNumber: '0919 402 6631', address: 'Poblacion, Carmen',             monthlyPrice: 1200, billingCycleDays: 32, billingStartDate: '2026-08-15', status: 'Active',       remarks: '' },
+      { id: 6, name: 'Jenny Lim',       service: 'Internet',                area: 'Panabo',       contactNumber: '0917 802 3390', address: 'J.P. Laurel St, Panabo City',   monthlyPrice: 600,  billingCycleDays: 30, billingStartDate: '2026-09-10', status: 'Active',       remarks: '' },
+      { id: 7, name: 'Mark Villanueva', service: 'Internet + CCTV',         area: 'Tagum',        contactNumber: '0921 556 7712', address: 'Visayan Village, Tagum City',   monthlyPrice: 900,  billingCycleDays: 32, billingStartDate: '2026-08-20', status: 'Active',       remarks: '' },
+    ],
+    customerById(id) { return this.customers.find(c => c.id === id); },
+
+    /* ── billings / payments (mirrors `billings` + `payments` tables) ── */
+    billings: [],
+    payments: [],
+    _billingSeq: 1,
+    _paymentSeq: 1,
+
+    customerId: null,
+
+    init() {
+      this.customerId = Number(new URLSearchParams(location.search).get('id')) || null;
+      this.seed();
+    },
+
+    get customer() { return this.customerById(this.customerId); },
+
+    /* ══════════════════════════════════════════════════════════════
+       BILLING ENGINE — identical logic to the Billing module. Status
+       is always derived, and the next cycle is anchored to the actual
+       full-payment date, never the due date. ─────────────────────── */
+    recalcBilling(b) {
+      b.balance = Math.round((b.amountDue - b.amountPaid) * 100) / 100;
+      if (b.balance <= 0)             b.status = 'Paid';
+      else if (b.amountPaid > 0)      b.status = 'Partial';
+      else if (isPastDate(b.dueDate)) b.status = 'Overdue';
+      else                             b.status = 'Unpaid';
+    },
+    createInitialBilling(customer) {
+      const b = {
+        id: this._billingSeq++, customerId: customer.id,
+        periodStart: customer.billingStartDate,
+        periodEnd: addDays(customer.billingStartDate, customer.billingCycleDays - 1),
+        dueDate: customer.billingStartDate,
+        amountDue: customer.monthlyPrice, amountPaid: 0, balance: customer.monthlyPrice,
+        status: 'Unpaid', paidAt: null, generatedFrom: null,
+      };
+      this.recalcBilling(b);
+      this.billings.push(b);
+      return b;
+    },
+    generateNextBilling(customer, anchorDate, sourceBillingId) {
+      if (customer.status !== 'Active') return null; // disconnected customers stop receiving cycles
+      const due = addDays(anchorDate, customer.billingCycleDays);
+      const b = {
+        id: this._billingSeq++, customerId: customer.id,
+        periodStart: anchorDate, periodEnd: addDays(due, -1), dueDate: due,
+        amountDue: customer.monthlyPrice, amountPaid: 0, balance: customer.monthlyPrice,
+        status: 'Unpaid', paidAt: null, generatedFrom: sourceBillingId,
+      };
+      this.recalcBilling(b);
+      this.billings.push(b);
+      return b;
+    },
+    _applyPayment(billing, { amount, date, method, reference, remarks }) {
+      const customer = this.customerById(billing.customerId);
+      const payment = {
+        id: this._paymentSeq++, customerId: billing.customerId, billingId: billing.id,
+        amount: Number(amount), date, method, reference: reference || '', remarks: remarks || '',
+      };
+      this.payments.push(payment);
+      billing.amountPaid = Math.round((billing.amountPaid + payment.amount) * 100) / 100;
+      this.recalcBilling(billing);
+      if (billing.status === 'Paid' && !billing.paidAt) {
+        billing.paidAt = date;
+        this.generateNextBilling(customer, date, billing.id);
+      }
+      return payment;
+    },
+    seed() {
+      const pay = (customerId, amount, date, method, reference) => {
+        const latest = this.billings.filter(b => b.customerId === customerId).slice(-1)[0];
+        return this._applyPayment(latest, { amount, date, method, reference });
+      };
+      this.customers.forEach(c => this.createInitialBilling(c));
+
+      pay(1, 600, '2026-09-04', 'GCash', 'GC-10045');
+      pay(1, 300, '2026-10-08', 'Cash', '');
+      pay(1, 300, '2026-10-15', 'Cash', '');
+
+      pay(2, 900, '2026-08-06', 'Cash', '');
+      pay(2, 450, '2026-09-05', 'GCash', 'GC-88213');
+
+      // Pedro — disconnected, unpaid billing left on record (Overdue).
+
+      // Ana — new customer, first billing not yet due.
+
+      pay(5, 1200, '2026-08-15', 'GCash', 'GC-55210');
+
+      // Jenny — new customer, first billing not yet due.
+
+      pay(7, 900, '2026-08-20', 'Cash', '');
+      pay(7, 450, '2026-09-18', 'GCash', 'GC-90031');
+    },
+
+    /* ── derived data for this customer ──────────────────────────── */
+    get customerBillings() {
+      return this.billings.filter(b => b.customerId === this.customerId)
+        .slice().sort((a, z) => a.periodStart.localeCompare(z.periodStart));
+    },
+    get currentBilling() {
+      const list = this.customerBillings;
+      if (!list.length) return null;
+      // Prefer the oldest unpaid/partial/overdue cycle; fall back to the latest record.
+      return list.find(b => b.balance > 0) || list[list.length - 1];
+    },
+    get customerPayments() {
+      return this.payments.filter(p => p.customerId === this.customerId)
+        .map(p => {
+          const billing = this.billings.find(b => b.id === p.billingId);
+          return {
+            ...p,
+            billingPeriod: billing ? formatDate(billing.periodStart) + ' – ' + formatDate(billing.periodEnd) : '—',
+          };
+        })
+        .sort((a, z) => z.date.localeCompare(a.date));
+    },
+
+    /* ── status display helpers ── */
+    statusLabel(status) { return status === 'Unpaid' ? 'Due' : status; },
+    statusStyle(status) {
+      return {
+        Paid:    'bg-emerald-50 text-emerald-700',
+        Partial: 'bg-amber-50 text-amber-700',
+        Unpaid:  'bg-yellow-50 text-yellow-700',
+        Overdue: 'bg-red-50 text-red-700',
+      }[status] || '';
+    },
+    statusDot(status) {
+      return { Paid: 'bg-emerald-500', Partial: 'bg-amber-500', Unpaid: 'bg-yellow-500', Overdue: 'bg-red-500' }[status] || '';
+    },
+    initials(name) {
+      return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    },
+
+    /* ── Add Payment modal (locked to this customer's current billing) ── */
+    editingPaymentId: null,
+    payForm: { amount: null, date: '', method: 'Cash', reference: '', remarks: '' },
+    payErrors: {},
+    get payMaxAmount() { return this.currentBilling ? this.currentBilling.balance : 0; },
+    todayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+    openPayModal() {
+      if (!this.currentBilling) return;
+      this.payForm = { amount: this.currentBilling.balance, date: this.todayStr(), method: 'Cash', reference: '', remarks: '' };
+      this.payErrors = {};
+      this.openModalCommon();
+    },
+    validatePayForm() {
+      this.payErrors = {};
+      let ok = true;
+      if (!this.currentBilling) { ok = false; }
+      if (!this.payForm.amount || this.payForm.amount <= 0) {
+        this.payErrors.amount = true; ok = false;
+      } else if (this.currentBilling && this.payForm.amount > this.payMaxAmount + 0.005) {
+        this.payErrors.amount = true; this.payErrors.amountMsg = 'Payment cannot exceed the remaining balance.'; ok = false;
+      }
+      if (!this.payForm.date) { this.payErrors.date = true; ok = false; }
+      return ok;
+    },
+    submitPayment() {
+      if (!this.validatePayForm()) return;
+      this._applyPayment(this.currentBilling, {
+        amount: Number(this.payForm.amount), date: this.payForm.date, method: this.payForm.method,
+        reference: this.payForm.reference, remarks: this.payForm.remarks,
+      });
+      this.showToast('Payment recorded successfully!');
+      this.closeModal();
+    },
+  };
+}
+</script>
+</body>
+</html>

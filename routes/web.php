@@ -41,6 +41,11 @@ use App\Http\Controllers\Payroll\EmployeeListController;
 use App\Http\Controllers\Payroll\PayrollHistoryController;
 use App\Http\Controllers\Payroll\SyncEmployeesController;
 
+// Billing
+use App\Livewire\Admin\Billing\Index as BillingsIndex;
+use App\Livewire\Admin\Customer\Index as CustomersIndex;
+use App\Livewire\Admin\CustomerDetail\Index as CustomerDetailsIndex;
+
 Route::view('/', 'welcome');
 
 
@@ -78,6 +83,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/payrolls/history/{payrollRun}', [PayrollHistoryController::class, 'show'])->name('payrolls.history.show');
     Route::delete('/payrolls/history/{payrollRun}', [PayrollHistoryController::class, 'destroy'])->name('payrolls.history.destroy');
     Route::post('/payrolls/sync-employees', SyncEmployeesController::class)->name('payrolls.sync-employees');
+
+
+    Route::get('/billings', BillingsIndex::class)->name('billings.index');
+    Route::get('/customers', CustomersIndex::class)->name('customers.index');
+    Route::get('/customers/{customer}/details', CustomerDetailsIndex::class)->name('customer-details.index');
 });
 
 Route::view('/settings', 'temp.placeholder', ['title' => 'Settings'])->name('settings.index');

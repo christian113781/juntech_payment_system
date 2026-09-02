@@ -9,7 +9,6 @@
     @livewireStyles
 </head>
 <body class="font-sans text-gray-800 antialiased bg-[#f8f9fc] dark:bg-[#0f1117]">
-    <a href="#main" class="skip-link">{{ __('Skip to main content') }}</a>
     {{ $slot }}
     @livewireScripts
 </body>

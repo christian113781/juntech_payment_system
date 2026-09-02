@@ -15,6 +15,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(ExpenseCategorySeeder::class);
+        $this->call([
+            AreaSeeder::class,
+            InventoryCategorySeeder::class,
+            ExpenseCategorySeeder::class,
+        ]);
     }
 }

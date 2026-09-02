@@ -8,7 +8,7 @@
 </head>
 <body class="font-sans antialiased bg-[#f8f9fc] dark:bg-[#0f1117] text-gray-800 dark:text-gray-100">
 
-<a href="#main" class="skip-link">Skip to main content</a>
+
 
 {{-- ── NAV ── --}}
 <header class="sticky top-0 z-30 bg-white/80 dark:bg-[#1e2133]/80 backdrop-blur border-b border-gray-100 dark:border-gray-800">

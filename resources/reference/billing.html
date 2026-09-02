@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Billing — Billing Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <!-- Shared dashboard logic (sidebar, toast, notifications, modal plumbing, date/currency helpers) -->
+  <script src="assets/js/main.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { poppins: ['Poppins', 'sans-serif'] },
+          colors: {
+            brand: {
+              50:  '#f0f4ff', 100: '#e0eaff', 200: '#c7d7fd',
+              400: '#818cf8', 500: '#6366f1', 600: '#4f46e5',
+              700: '#4338ca', 900: '#1e1b4b',
+            },
+          },
+          boxShadow: {
+            card: '0 1px 4px 0 rgba(99,102,241,.08), 0 4px 16px 0 rgba(99,102,241,.06)',
+          },
+        }
+      }
+    }
+  </script>
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="font-poppins text-gray-800 antialiased" x-data="billingPage()" x-init="init()" x-cloak>
+
+<a href="#main" class="skip-link">Skip to main content</a>
+
+<!-- ════ MOBILE OVERLAY ════ -->
+<div id="sidebar-overlay"
+     class="fixed inset-0 bg-gray-900/50 z-20 lg:hidden"
+     aria-hidden="true"
+     x-show="mobileOpen"
+     x-transition.opacity
+     @click="closeMobileSidebar()"
+     style="display:none"></div>
+
+<!-- ════ TOAST ════ -->
+<div id="toast" role="status" aria-live="polite" aria-atomic="true" :class="{ show: toast.show }">
+  <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+  </svg>
+  <span x-text="toast.msg">Done</span>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     MODAL — Record / Edit Payment
+════════════════════════════════════════════════ -->
+<div id="modal-backdrop"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-title"
+     aria-describedby="modal-desc"
+     :class="{ open: modalOpen }"
+     @keydown.escape="closeModal()"
+     @click="if ($event.target.id === 'modal-backdrop') closeModal()">
+
+  <div id="modal-dialog" x-ref="dialog" @keydown.tab="trapFocus($event)">
+
+    <!-- Modal header -->
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-[1.25rem]">
+      <div>
+        <h2 id="modal-title" class="text-lg font-bold text-gray-900" x-text="editingPaymentId ? 'Edit Payment' : 'Record Payment'"></h2>
+        <p id="modal-desc" class="text-xs text-gray-400 mt-0.5" x-text="editingPaymentId ? 'Correct the most recent payment on this billing' : 'Apply a payment against a customer\'s billing'"></p>
+      </div>
+      <button type="button" @click="closeModal()"
+              class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              aria-label="Close dialog">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Form body -->
+    <form @submit.prevent="submitPayment()" novalidate>
+      <div class="px-6 py-5 space-y-4">
+
+        <!-- Billing picker (only when opened without a preselected billing) -->
+        <div x-show="!lockBilling">
+          <label for="p-billing" class="block text-xs font-semibold text-gray-600 mb-1.5">
+            Billing <span aria-hidden="true" class="text-red-500">*</span><span class="sr-only">(required)</span>
+          </label>
+          <select id="p-billing" class="field" :class="{ error: payErrors.billing }"
+                  x-model.number="selectedBillingId"
+                  @change="payForm.amount = payMaxAmount">
+            <option :value="null" disabled>Select an unpaid or partial billing…</option>
+            <template x-for="b in outstandingBillings" :key="b.id">
+              <option :value="b.id"
+                      x-text="customerById(b.customerId).name + ' — due ' + formatDate(b.dueDate) + ' — balance ' + pesoFmt(b.balance)"></option>
+            </template>
+          </select>
+          <p class="mt-1 text-xs text-red-500" role="alert" x-show="payErrors.billing">Choose a billing to apply this payment to.</p>
+        </div>
+
+        <!-- Selected billing summary -->
+        <div x-show="selectedBilling" class="bg-gray-50 rounded-xl px-4 py-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-bold text-gray-900" x-text="selectedCustomer?.name"></p>
+            <span class="badge" :class="statusStyle(selectedBilling?.status)">
+              <span class="badge-dot" :class="statusDot(selectedBilling?.status)" aria-hidden="true"></span>
+              <span x-text="statusLabel(selectedBilling?.status)"></span>
+            </span>
+          </div>
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+            <dt class="text-gray-500">Billing Period</dt>
+            <dd class="text-gray-800 font-medium text-end" x-text="selectedBilling ? formatDate(selectedBilling.periodStart) + ' – ' + formatDate(selectedBilling.periodEnd) : '—'"></dd>
+            <dt class="text-gray-500">Due Date</dt>
+            <dd class="text-gray-800 font-medium text-end" x-text="selectedBilling ? formatDate(selectedBilling.dueDate) : '—'"></dd>
+            <dt class="text-gray-500">Amount Due</dt>
+            <dd class="text-gray-800 font-medium text-end" x-text="selectedBilling ? pesoFmt(selectedBilling.amountDue) : '—'"></dd>
+            <dt class="text-gray-500">Already Paid</dt>
+            <dd class="text-gray-800 font-medium text-end" x-text="selectedBilling ? pesoFmt(editingPaymentId ? selectedBilling.amountPaid - payForm._origAmount : selectedBilling.amountPaid) : '—'"></dd>
+            <dt class="text-gray-600 font-semibold">Remaining Balance</dt>
+            <dd class="text-gray-900 font-bold text-end" x-text="pesoFmt(payMaxAmount)"></dd>
+          </dl>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="p-amount" class="block text-xs font-semibold text-gray-600 mb-1.5">
+              Payment Amount <span aria-hidden="true" class="text-red-500">*</span><span class="sr-only">(required)</span>
+            </label>
+            <div class="relative">
+              <span class="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">₱</span>
+              <input id="p-amount" type="number" min="0.01" step="0.01" class="field ps-7" :class="{ error: payErrors.amount }"
+                     x-model.number="payForm.amount" :disabled="!selectedBilling" placeholder="0.00" required
+                     aria-describedby="p-amount-err">
+            </div>
+            <p id="p-amount-err" class="mt-1 text-xs text-red-500" role="alert" x-show="payErrors.amount">
+              <span x-text="payErrors.amountMsg || 'Enter a valid payment amount.'"></span>
+            </p>
+          </div>
+          <div>
+            <label for="p-date" class="block text-xs font-semibold text-gray-600 mb-1.5">
+              Payment Date <span aria-hidden="true" class="text-red-500">*</span><span class="sr-only">(required)</span>
+            </label>
+            <input id="p-date" type="date" class="field" :class="{ error: payErrors.date }"
+                   x-model="payForm.date" :disabled="!selectedBilling" required aria-describedby="p-date-err">
+            <p id="p-date-err" class="mt-1 text-xs text-red-500" role="alert" x-show="payErrors.date">Pick the date this payment was received.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="p-method" class="block text-xs font-semibold text-gray-600 mb-1.5">Payment Method</label>
+            <select id="p-method" class="field" x-model="payForm.method" :disabled="!selectedBilling">
+              <option value="Cash">Cash</option>
+              <option value="GCash">GCash</option>
+            </select>
+          </div>
+          <div>
+            <label for="p-ref" class="block text-xs font-semibold text-gray-600 mb-1.5">Reference Number</label>
+            <input id="p-ref" type="text" class="field" x-model.trim="payForm.reference" :disabled="!selectedBilling"
+                   placeholder="e.g. GC-88213" autocomplete="off">
+          </div>
+        </div>
+
+        <div>
+          <label for="p-remarks" class="block text-xs font-semibold text-gray-600 mb-1.5">Remarks</label>
+          <textarea id="p-remarks" rows="2" class="field resize-none" x-model.trim="payForm.remarks" :disabled="!selectedBilling"
+                    placeholder="Optional notes about this payment…"></textarea>
+        </div>
+
+        <div x-show="selectedBilling && payForm.amount && Number(payForm.amount) < payMaxAmount"
+             class="bg-amber-50 rounded-xl px-4 py-3 text-xs text-amber-700 flex items-start gap-2">
+          <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>This is a partial payment. The billing will stay <strong>Partial</strong> and the next billing cycle won't move until it's fully paid.</span>
+        </div>
+        <div x-show="selectedBilling && payForm.amount && Number(payForm.amount) >= payMaxAmount && payMaxAmount > 0"
+             class="bg-emerald-50 rounded-xl px-4 py-3 text-xs text-emerald-700 flex items-start gap-2">
+          <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <span>This fully settles the billing. The next cycle will be due
+            <strong x-text="selectedCustomer ? formatDate(addDays(payForm.date || selectedBilling.dueDate, selectedCustomer.billingCycleDays)) : ''"></strong>.
+          </span>
+        </div>
+
+      </div>
+
+      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 sticky bottom-0 bg-white rounded-b-[1.25rem]">
+        <button type="button" @click="closeModal()"
+                class="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-100 transition-colors min-h-[44px]">
+          Cancel
+        </button>
+        <button type="submit" :disabled="!selectedBilling"
+                class="px-6 py-2.5 rounded-xl text-sm font-semibold bg-brand-600 text-white hover:bg-brand-700 transition-colors shadow-sm min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed"
+                x-text="editingPaymentId ? 'Save Changes' : 'Save Payment'">
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     DELETE PAYMENT CONFIRM
+════════════════════════════════════════════════ -->
+<div id="delete-backdrop"
+     role="alertdialog" aria-modal="true" aria-labelledby="delete-title"
+     :class="{ open: paymentDeleteTarget }"
+     style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .2s ease;"
+     :style="paymentDeleteTarget ? 'opacity:1;pointer-events:auto' : 'opacity:0;pointer-events:none'"
+     @click="if ($event.target.id === 'delete-backdrop') paymentDeleteTarget = null"
+     @keydown.escape="paymentDeleteTarget = null">
+  <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-card">
+    <div class="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center mb-3" aria-hidden="true">
+      <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9.5 4h5a1 1 0 011 1v2h-7V5a1 1 0 011-1z"/></svg>
+    </div>
+    <h2 id="delete-title" class="text-base font-bold text-gray-900">
+      Delete payment of <span x-text="paymentDeleteTarget ? pesoFmt(paymentDeleteTarget.payment.amount) : ''"></span>?
+    </h2>
+    <p class="text-sm text-gray-500 mt-1">
+      This removes the payment
+      <span x-text="paymentDeleteTarget ? 'dated ' + formatDate(paymentDeleteTarget.payment.date) : ''"></span>
+      from <strong class="text-gray-800" x-text="paymentDeleteTarget?.customer?.name"></strong>'s billing, restores the balance, and recalculates the billing status. If it had already generated the next billing cycle, that cycle is removed too.
+    </p>
+    <div class="flex justify-end gap-3 mt-5">
+      <button @click="paymentDeleteTarget = null" class="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 min-h-[44px]">Cancel</button>
+      <button @click="confirmDeletePayment()" class="px-4 py-2 rounded-xl text-sm font-semibold bg-red-500 text-white hover:bg-red-600 min-h-[44px]">Delete Payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     LAYOUT SHELL
+════════════════════════════════════════════════ -->
+<div class="flex min-h-[100dvh]">
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside id="sidebar"
+         aria-label="Primary navigation"
+         class="bg-white flex flex-col shadow-card flex-shrink-0 relative z-30"
+         :class="{ collapsed: sidebarCollapsed, 'mobile-open': mobileOpen }">
+
+    <div class="logo-wrap flex items-center gap-3 px-6 py-5 border-b border-gray-100 flex-shrink-0">
+      <div class="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      </div>
+      <div class="logo-text min-w-0">
+        <p class="text-sm font-bold text-gray-900 leading-tight whitespace-nowrap">StockMaster</p>
+        <p class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">Billing Admin</p>
+      </div>
+    </div>
+
+    <nav class="flex-1 sidebar-scroll py-3 px-2" aria-label="Primary">
+      <template x-for="section in navSections" :key="section.label">
+        <div>
+          <p class="nav-section-label px-3 mb-2 mt-4 first:mt-0 text-[10px] font-semibold text-gray-400 uppercase tracking-wider" x-text="section.label"></p>
+          <ul class="space-y-0.5" role="list">
+            <template x-for="item in section.items" :key="item.name">
+              <li>
+                <a :href="item.href"
+                   class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors"
+                   :class="item.disabled ? 'is-disabled' : 'text-gray-700 hover:bg-brand-50 hover:text-brand-700'"
+                   :aria-current="item.active ? 'page' : null"
+                   :aria-disabled="item.disabled ? 'true' : null"
+                   :tabindex="item.disabled ? -1 : 0"
+                   :title="item.name">
+                  <svg class="w-5 h-5 flex-shrink-0" :class="item.active ? 'text-brand-500' : (item.disabled ? 'text-gray-300' : 'text-gray-400')" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon"/>
+                  </svg>
+                  <span class="nav-label flex-1" x-text="item.name"></span>
+                  <span class="nav-label soon-pill" x-show="item.disabled">SOON</span>
+                </a>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </template>
+    </nav>
+
+    <div class="border-t border-gray-100 px-3 py-4 flex-shrink-0">
+      <div class="user-wrap flex items-center gap-3">
+        <div class="user-avatar w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold" aria-hidden="true">JD</div>
+        <div class="user-info min-w-0">
+          <p class="text-sm font-semibold text-gray-800 truncate">Juan Dela Cruz</p>
+          <p class="text-[11px] text-gray-400 truncate">Administrator</p>
+        </div>
+        <button class="user-info ms-auto p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" aria-label="Sign out">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN COLUMN ══ -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- ════ HEADER ════ -->
+    <header class="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-sm">
+      <div class="flex items-center gap-3 px-4 sm:px-6 py-3.5">
+        <button id="collapse-btn"
+                class="hidden lg:flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-brand-600 transition-colors flex-shrink-0"
+                :class="{ 'is-collapsed': sidebarCollapsed }"
+                @click="sidebarCollapsed = !sidebarCollapsed"
+                :aria-expanded="(!sidebarCollapsed).toString()" aria-controls="sidebar"
+                :aria-label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v18"/>
+          </svg>
+        </button>
+        <button id="menu-btn"
+                class="lg:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                @click="mobileOpen ? closeMobileSidebar() : openMobileSidebar()"
+                :aria-expanded="mobileOpen.toString()" aria-controls="sidebar"
+                :aria-label="mobileOpen ? 'Close navigation menu' : 'Open navigation menu'">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+        <div class="flex-1 max-w-md">
+          <div class="relative">
+            <svg class="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+            <input id="global-search" type="search" placeholder="Search billing…"
+                   x-model.debounce.200ms="query"
+                   class="w-full ps-9 pe-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg placeholder:text-gray-400 focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-100 outline-none transition-colors min-h-[2.75rem]">
+          </div>
+        </div>
+        <div class="flex items-center gap-2 ms-auto">
+          <button @click="toggleDark()"
+                  class="dark-toggle text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10"
+                  :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
+            <svg class="icon-sun w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            <svg class="icon-moon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+            </svg>
+          </button>
+          <div class="relative">
+            <button @click="notifOpen = !notifOpen"
+                    class="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                    :aria-label="'Notifications' + (unreadCount ? ' (' + unreadCount + ' unread)' : '')"
+                    aria-haspopup="true" :aria-expanded="notifOpen.toString()" aria-controls="notif-panel">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+              <span class="absolute top-1.5 end-1.5 w-2 h-2 rounded-full bg-red-500" aria-hidden="true" x-show="unreadCount > 0"></span>
+            </button>
+            <div id="notif-panel" role="menu" aria-label="Notifications"
+                 x-show="notifOpen" x-transition
+                 @click.outside="notifOpen = false" @keydown.escape="notifOpen = false"
+                 class="absolute end-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-card border border-gray-100 z-40 overflow-hidden"
+                 style="display:none">
+              <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <h2 class="text-sm font-bold text-gray-900">Notifications</h2>
+                <button @click="markAllRead()" x-show="unreadCount > 0"
+                        class="text-xs font-semibold text-brand-600 hover:text-brand-700">Mark all as read</button>
+              </div>
+              <ul class="max-h-80 overflow-y-auto divide-y divide-gray-50" role="list">
+                <template x-for="n in notifications" :key="n.id">
+                  <li>
+                    <button @click="markRead(n)" class="w-full flex items-start gap-3 px-4 py-3 text-start hover:bg-gray-50/60 transition-colors" :class="{ 'bg-brand-50/40': !n.read }">
+                      <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="n.iconBg" aria-hidden="true">
+                        <svg class="w-4 h-4" :class="n.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="n.icon"/></svg>
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <p class="text-sm font-medium text-gray-800 truncate" x-text="n.title"></p>
+                        <p class="text-xs text-gray-500 mt-0.5" x-text="n.message"></p>
+                        <p class="text-[11px] text-gray-400 mt-1" x-text="n.time"></p>
+                      </div>
+                      <span class="w-2 h-2 rounded-full bg-brand-500 flex-shrink-0 mt-1.5" aria-hidden="true" x-show="!n.read"></span>
+                    </button>
+                  </li>
+                </template>
+              </ul>
+              <div class="px-4 py-3 border-t border-gray-100 text-center">
+                <a href="billing.html" class="text-xs font-semibold text-brand-600 hover:text-brand-700">Go to Billing</a>
+              </div>
+            </div>
+          </div>
+          <div class="relative">
+            <button @click="profileOpen = !profileOpen"
+                    class="flex items-center gap-2 p-1 pe-2 rounded-full hover:bg-gray-100 transition-colors"
+                    aria-haspopup="true" :aria-expanded="profileOpen.toString()" aria-controls="profile-panel"
+                    aria-label="Account menu for Juan Dela Cruz">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0" aria-hidden="true">JD</div>
+              <svg class="w-3.5 h-3.5 text-gray-400 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="profile-panel" role="menu" aria-label="Account menu"
+                 x-show="profileOpen" x-transition
+                 @click.outside="profileOpen = false" @keydown.escape="profileOpen = false"
+                 class="absolute end-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-card border border-gray-100 z-40 overflow-hidden"
+                 style="display:none">
+              <ul class="py-1.5" role="list">
+                <li><a href="#" role="menuitem" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">My Profile</a></li>
+                <li><a href="#" role="menuitem" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">Account Settings</a></li>
+              </ul>
+              <div class="border-t border-gray-100 py-1.5">
+                <button role="menuitem" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">Sign Out</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ════ MAIN PAGE ════ -->
+    <main id="main" tabindex="-1" class="flex-1 px-4 sm:px-6 py-6 space-y-6 max-w-[1600px] mx-auto w-full">
+
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Billing</h1>
+          <p class="text-sm text-gray-500 mt-0.5">See who's billed, who's paid, and who still owes for the selected period</p>
+        </div>
+        <button @click="openPayModal(null)"
+                class="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm min-h-[44px]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Record Payment
+        </button>
+      </div>
+
+      <!-- BILLING SUMMARY -->
+      <section aria-labelledby="bstats-heading">
+        <h2 id="bstats-heading" class="sr-only">Billing summary for the selected filters</h2>
+        <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Billing Records</p>
+              <p class="text-lg font-bold text-gray-900" x-text="summary.count"></p>
+            </div>
+          </div>
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-9c-1.11 0-2.08.402-2.599 1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Total Billing</p>
+              <p class="text-lg font-bold text-gray-900" x-text="pesoFmt(summary.totalBilling)"></p>
+            </div>
+          </div>
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Total Paid</p>
+              <p class="text-lg font-bold text-gray-900" x-text="pesoFmt(summary.totalPaid)"></p>
+            </div>
+          </div>
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Outstanding</p>
+              <p class="text-lg font-bold text-gray-900" x-text="pesoFmt(summary.outstanding)"></p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TABLE CARD -->
+      <section aria-labelledby="table-heading" class="bg-white rounded-2xl shadow-card">
+
+        <!-- Filter bar -->
+        <div class="p-5 border-b border-gray-100 space-y-3">
+          <h2 id="table-heading" class="sr-only">Billing records</h2>
+          <div class="flex flex-col lg:flex-row lg:items-center gap-3">
+            <select x-model.number="monthFilter" class="field !w-auto min-h-[2.75rem] py-2 text-sm" aria-label="Filter by month">
+              <template x-for="m in monthOptions" :key="m.value"><option :value="m.value" x-text="m.label"></option></template>
+            </select>
+            <select x-model.number="yearFilter" class="field !w-auto min-h-[2.75rem] py-2 text-sm" aria-label="Filter by year">
+              <template x-for="y in yearOptions" :key="y"><option :value="y" x-text="y"></option></template>
+            </select>
+            <select x-model="statusFilter" class="field !w-auto min-h-[2.75rem] py-2 text-sm" aria-label="Filter by status">
+              <option value="">All</option>
+              <option value="Due">Due</option>
+              <option value="Overdue">Overdue</option>
+              <option value="Partial">Partial</option>
+              <option value="Paid">Paid</option>
+              <option value="Unpaid">Unpaid</option>
+            </select>
+            <div class="relative flex-1 max-w-sm">
+              <svg class="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+              <input type="search" x-model.debounce.200ms="query" placeholder="Search name, contact, area, service…"
+                     class="w-full ps-9 pe-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg placeholder:text-gray-400 focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-100 outline-none transition-colors min-h-[2.75rem]"
+                     aria-label="Search billing records">
+            </div>
+            <button @click="clearFilters()"
+                    x-show="statusFilter || query || !isDefaultPeriod"
+                    class="text-xs font-semibold text-gray-500 hover:text-brand-600 whitespace-nowrap px-2 lg:ms-auto">
+              Clear Filters
+            </button>
+          </div>
+        </div>
+
+        <div class="tbl-wrap" tabindex="0" role="region" aria-labelledby="table-heading">
+          <table class="w-full text-sm" style="min-inline-size:52rem">
+            <caption class="sr-only">Billing records for the selected month, year, status, and search</caption>
+            <thead>
+              <tr class="text-left border-b border-gray-100">
+                <th scope="col" class="px-5 py-3">
+                  <button @click="toggleSort('customer')" class="flex items-center gap-1 font-semibold text-gray-500 text-xs uppercase tracking-wider hover:text-brand-600">
+                    Customer <span x-show="sortBy==='customer'" x-text="sortDir==='asc' ? '▲' : '▼'" class="text-[9px]"></span>
+                  </button>
+                </th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Billing Period</th>
+                <th scope="col" class="px-5 py-3 text-end">
+                  <button @click="toggleSort('amount')" class="flex items-center gap-1 font-semibold text-gray-500 text-xs uppercase tracking-wider hover:text-brand-600 ms-auto">
+                    Amount Due <span x-show="sortBy==='amount'" x-text="sortDir==='asc' ? '▲' : '▼'" class="text-[9px]"></span>
+                  </button>
+                </th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Amount Paid</th>
+                <th scope="col" class="px-5 py-3">
+                  <button @click="toggleSort('status')" class="flex items-center gap-1 font-semibold text-gray-500 text-xs uppercase tracking-wider hover:text-brand-600">
+                    Status <span x-show="sortBy==='status'" x-text="sortDir==='asc' ? '▲' : '▼'" class="text-[9px]"></span>
+                  </button>
+                </th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              <template x-for="b in filteredBillings" :key="b.id">
+                <tr class="hover:bg-gray-50/60 transition-colors">
+                  <td class="px-5 py-3">
+                    <div class="flex items-center gap-2.5">
+                      <div class="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0 text-[10px] font-bold" aria-hidden="true" x-text="initials(customerById(b.customerId).name)"></div>
+                      <div class="min-w-0">
+                        <p class="font-medium text-gray-800 truncate" x-text="customerById(b.customerId).name"></p>
+                        <p class="text-[11px] text-gray-400 truncate" x-text="customerById(b.customerId).area"></p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3 text-gray-700 whitespace-nowrap" x-text="formatDate(b.periodStart) + ' – ' + formatDate(b.periodEnd)"></td>
+                  <td class="px-5 py-3 text-end font-semibold text-gray-700" x-text="pesoFmt(b.amountDue)"></td>
+                  <td class="px-5 py-3 text-end text-gray-700" x-text="pesoFmt(b.amountPaid)"></td>
+                  <td class="px-5 py-3">
+                    <span class="badge" :class="statusStyle(b.status)">
+                      <span class="badge-dot" :class="statusDot(b.status)" aria-hidden="true"></span>
+                      <span x-text="statusLabel(b.status)"></span>
+                    </span>
+                  </td>
+                  <td class="px-5 py-3 text-end">
+                    <div class="flex items-center justify-end gap-1">
+                      <button @click="openPayModal(b)" :disabled="b.balance <= 0"
+                              class="p-2 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 disabled:cursor-not-allowed"
+                              :aria-label="'Pay ' + customerById(b.customerId).name">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-9c-1.11 0-2.08.402-2.599 1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                      </button>
+                      <button @click="openEditPayment(b)" :disabled="!lastPaymentFor(b)"
+                              class="p-2 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 disabled:cursor-not-allowed"
+                              :aria-label="'Edit last payment for ' + customerById(b.customerId).name">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                      </button>
+                      <button @click="askDeletePayment(b)" :disabled="!lastPaymentFor(b)"
+                              class="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 disabled:cursor-not-allowed"
+                              :aria-label="'Delete last payment for ' + customerById(b.customerId).name">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9.5 4h5a1 1 0 011 1v2h-7V5a1 1 0 011-1z"/></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="filteredBillings.length === 0">
+                <td colspan="6" class="px-5 py-10 text-center text-sm text-gray-400">No billing records match your filters.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-100" x-show="filteredBillings.length > 0">
+          <p class="text-xs text-gray-500">
+            Showing <strong x-text="filteredBillings.length"></strong> billing record<span x-show="filteredBillings.length !== 1">s</span>
+            for <strong x-text="monthOptions.find(m => m.value === monthFilter)?.label + ' ' + yearFilter"></strong>
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="border-t border-gray-100 px-6 py-4 text-center text-xs text-gray-400">
+      StockMaster Billing Admin &copy; 2026
+    </footer>
+  </div>
+</div>
+
+<script>
+function billingPage() {
+  return {
+    /* ── shared chrome: sidebar, toast, notifications, profile menu,
+          generic modal plumbing, currency/date helpers — see assets/js/main.js ─── */
+    ...sharedChrome('billing.html'),
+    pesoFmt, formatDate, addDays, parseDate, isPastDate,
+
+    /* ── customer directory ──────────────────────────────────────
+       Mirrors the `customers` table. Kept in this page too (rather
+       than shared across pages) since this prototype has no backend —
+       in production both pages read from the same `customers` table. */
+    customers: [
+      { id: 1, name: 'John Dela Cruz',  service: 'Internet',                area: 'Tagum',        contactNumber: '0917 555 0142', monthlyPrice: 600,  billingCycleDays: 32, billingStartDate: '2026-09-02', status: 'Active' },
+      { id: 2, name: 'Maria Santos',    service: 'Internet + CCTV',         area: 'Tagum',        contactNumber: '0918 220 4471', monthlyPrice: 900,  billingCycleDays: 30, billingStartDate: '2026-08-06', status: 'Active' },
+      { id: 3, name: 'Pedro Reyes',     service: 'Internet',                area: 'New Corella',  contactNumber: '0920 331 8890', monthlyPrice: 600,  billingCycleDays: 32, billingStartDate: '2026-08-01', status: 'Disconnected' },
+      { id: 4, name: 'Ana Garcia',      service: 'Internet',                area: 'New Corella',  contactNumber: '0916 774 2205', monthlyPrice: 700,  billingCycleDays: 31, billingStartDate: '2026-09-03', status: 'Active' },
+      { id: 5, name: 'Roberto Tan',     service: 'Internet + CCTV + Other', area: 'Carmen',       contactNumber: '0919 402 6631', monthlyPrice: 1200, billingCycleDays: 32, billingStartDate: '2026-08-15', status: 'Active' },
+      { id: 6, name: 'Jenny Lim',       service: 'Internet',                area: 'Panabo',       contactNumber: '0917 802 3390', monthlyPrice: 600,  billingCycleDays: 30, billingStartDate: '2026-09-10', status: 'Active' },
+      { id: 7, name: 'Mark Villanueva', service: 'Internet + CCTV',         area: 'Tagum',        contactNumber: '0921 556 7712', monthlyPrice: 900,  billingCycleDays: 32, billingStartDate: '2026-08-20', status: 'Active' },
+    ],
+    customerById(id) { return this.customers.find(c => c.id === id); },
+
+    /* ── billings / payments (mirrors `billings` + `payments` tables) ── */
+    billings: [],
+    payments: [],
+    _billingSeq: 1,
+    _paymentSeq: 1,
+
+    init() { this.seed(); },
+
+    /* ══════════════════════════════════════════════════════════════
+       BILLING ENGINE
+       - A billing's status is always derived from amount_paid/balance/
+         due_date — never stored/edited directly.
+       - The next billing cycle is only generated once a billing is
+         FULLY paid, anchored to the actual full-payment date (never
+         the due date), per the cycle-days rule.
+       - Disconnected customers stop receiving new cycles.
+       ══════════════════════════════════════════════════════════════ */
+    recalcBilling(b) {
+      b.balance = Math.round((b.amountDue - b.amountPaid) * 100) / 100;
+      if (b.balance <= 0)        b.status = 'Paid';
+      else if (b.amountPaid > 0) b.status = 'Partial';
+      else if (isPastDate(b.dueDate)) b.status = 'Overdue';
+      else                        b.status = 'Unpaid';
+    },
+    createInitialBilling(customer) {
+      const b = {
+        id: this._billingSeq++, customerId: customer.id,
+        periodStart: customer.billingStartDate,
+        periodEnd: addDays(customer.billingStartDate, customer.billingCycleDays - 1),
+        dueDate: customer.billingStartDate,
+        amountDue: customer.monthlyPrice, amountPaid: 0, balance: customer.monthlyPrice,
+        status: 'Unpaid', paidAt: null, generatedFrom: null,
+      };
+      this.recalcBilling(b);
+      this.billings.push(b);
+      return b;
+    },
+    generateNextBilling(customer, anchorDate, sourceBillingId) {
+      // Disconnected customers don't automatically receive new cycles.
+      if (customer.status !== 'Active') return null;
+      const due = addDays(anchorDate, customer.billingCycleDays);
+      const b = {
+        id: this._billingSeq++, customerId: customer.id,
+        periodStart: anchorDate, periodEnd: addDays(due, -1), dueDate: due,
+        // Uses the customer's CURRENT price/cycle — a price change never
+        // rewrites already-paid historical billings, only future ones.
+        amountDue: customer.monthlyPrice, amountPaid: 0, balance: customer.monthlyPrice,
+        status: 'Unpaid', paidAt: null, generatedFrom: sourceBillingId,
+      };
+      this.recalcBilling(b);
+      this.billings.push(b);
+      return b;
+    },
+    _applyPayment(billing, { amount, date, method, reference, remarks }) {
+      const customer = this.customerById(billing.customerId);
+      const payment = {
+        id: this._paymentSeq++, customerId: billing.customerId, billingId: billing.id,
+        amount: Number(amount), date, method, reference: reference || '', remarks: remarks || '',
+      };
+      this.payments.push(payment);
+      billing.amountPaid = Math.round((billing.amountPaid + payment.amount) * 100) / 100;
+      this.recalcBilling(billing);
+      if (billing.status === 'Paid' && !billing.paidAt) {
+        billing.paidAt = date;
+        this.generateNextBilling(customer, date, billing.id);
+      }
+      return payment;
+    },
+    seed() {
+      const pay = (customerId, amount, date, method, reference) => {
+        const latest = this.billings.filter(b => b.customerId === customerId).slice(-1)[0];
+        return this._applyPayment(latest, { amount, date, method, reference });
+      };
+      this.customers.forEach(c => this.createInitialBilling(c));
+
+      // John — the full walkthrough from the spec: paid on time, then a
+      // partial + follow-up payment that completes the next cycle.
+      pay(1, 600, '2026-09-04', 'GCash', 'GC-10045');
+      pay(1, 300, '2026-10-08', 'Cash', '');
+      pay(1, 300, '2026-10-15', 'Cash', '');
+
+      // Maria — paid on time once, then partially paid the next cycle.
+      pay(2, 900, '2026-08-06', 'Cash', '');
+      pay(2, 450, '2026-09-05', 'GCash', 'GC-88213');
+
+      // Pedro — disconnected with an unpaid, now-overdue billing left on record.
+      // (no payment — demonstrates Overdue, and that disconnected customers
+      // never receive an auto-generated next cycle)
+
+      // Ana — new customer, first billing not yet due.
+
+      // Roberto — paid the first cycle on time; second cycle now due, unpaid.
+      pay(5, 1200, '2026-08-15', 'GCash', 'GC-55210');
+
+      // Jenny — new customer, first billing not yet due.
+
+      // Mark — paid the first cycle, partially paid the second.
+      pay(7, 900, '2026-08-20', 'Cash', '');
+      pay(7, 450, '2026-09-18', 'GCash', 'GC-90031');
+    },
+
+    /* ── status display helpers ── */
+    statusLabel(status) { return status === 'Unpaid' ? 'Due' : status; },
+    statusStyle(status) {
+      return {
+        Paid:    'bg-emerald-50 text-emerald-700',
+        Partial: 'bg-amber-50 text-amber-700',
+        Unpaid:  'bg-yellow-50 text-yellow-700',
+        Overdue: 'bg-red-50 text-red-700',
+      }[status] || '';
+    },
+    statusDot(status) {
+      return { Paid: 'bg-emerald-500', Partial: 'bg-amber-500', Unpaid: 'bg-yellow-500', Overdue: 'bg-red-500' }[status] || '';
+    },
+    initials(name) {
+      return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    },
+
+    /* ── filters / sort ──────────────────────────────────────────
+       Month + Year filter on the billing record's DUE DATE, per spec —
+       never on registration date or payment date. ─────────────────── */
+    monthOptions: [
+      { value: 1, label: 'January' }, { value: 2, label: 'February' }, { value: 3, label: 'March' },
+      { value: 4, label: 'April' },   { value: 5, label: 'May' },      { value: 6, label: 'June' },
+      { value: 7, label: 'July' },    { value: 8, label: 'August' },   { value: 9, label: 'September' },
+      { value: 10, label: 'October' },{ value: 11, label: 'November' },{ value: 12, label: 'December' },
+    ],
+    yearOptions: [2025, 2026, 2027],
+    monthFilter: new Date().getMonth() + 1,
+    yearFilter: new Date().getFullYear(),
+    statusFilter: '',
+    query: '',
+    sortBy: 'due',
+    sortDir: 'asc',
+
+    get isDefaultPeriod() {
+      const now = new Date();
+      return this.monthFilter === now.getMonth() + 1 && this.yearFilter === now.getFullYear();
+    },
+    clearFilters() {
+      const now = new Date();
+      this.monthFilter = now.getMonth() + 1;
+      this.yearFilter = now.getFullYear();
+      this.statusFilter = '';
+      this.query = '';
+      this.sortBy = 'due';
+      this.sortDir = 'asc';
+    },
+    toggleSort(field) {
+      if (this.sortBy === field) this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+      else { this.sortBy = field; this.sortDir = 'asc'; }
+    },
+
+    get filteredBillings() {
+      let list = this.billings.filter(b => {
+        const d = parseDate(b.dueDate);
+        if (d.getMonth() + 1 !== Number(this.monthFilter) || d.getFullYear() !== Number(this.yearFilter)) return false;
+        if (this.statusFilter) {
+          // "Due" and "Unpaid" both refer to a billing with nothing paid
+          // yet that isn't overdue — offered as separate filter options
+          // per spec, but they map to the same underlying status.
+          const want = this.statusFilter === 'Due' ? 'Unpaid' : this.statusFilter;
+          if (b.status !== want) return false;
+        }
+        const q = this.query.trim().toLowerCase();
+        if (q) {
+          const c = this.customerById(b.customerId);
+          const hay = [c.name, c.contactNumber, c.area, c.service].join(' ').toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+      const dir = this.sortDir === 'asc' ? 1 : -1;
+      list = list.slice().sort((a, z) => {
+        switch (this.sortBy) {
+          case 'customer': return dir * this.customerById(a.customerId).name.localeCompare(this.customerById(z.customerId).name);
+          case 'amount':   return dir * (a.amountDue - z.amountDue);
+          case 'balance':  return dir * (a.balance - z.balance);
+          case 'status':   return dir * a.status.localeCompare(z.status);
+          default:         return dir * a.dueDate.localeCompare(z.dueDate); // 'due'
+        }
+      });
+      return list;
+    },
+    get summary() {
+      const list = this.filteredBillings;
+      return {
+        count: list.length,
+        totalBilling: list.reduce((s, b) => s + b.amountDue, 0),
+        totalPaid: list.reduce((s, b) => s + b.amountPaid, 0),
+        outstanding: list.reduce((s, b) => s + b.balance, 0),
+      };
+    },
+
+    /* ── Record / Edit Payment modal ─────────────────────────────── */
+    selectedBillingId: null,
+    lockBilling: false, // true when opened from a row's Pay/Edit button (billing preselected + fixed)
+    editingPaymentId: null,
+    payForm: { amount: null, date: '', method: 'Cash', reference: '', remarks: '', _origAmount: 0 },
+    payErrors: {},
+
+    get outstandingBillings() {
+      return this.billings.filter(b => b.balance > 0).slice().sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    },
+    get selectedBilling() { return this.billings.find(b => b.id === this.selectedBillingId) || null; },
+    get selectedCustomer() { return this.selectedBilling ? this.customerById(this.selectedBilling.customerId) : null; },
+    get payMaxAmount() {
+      if (!this.selectedBilling) return 0;
+      if (this.editingPaymentId) return Math.round((this.selectedBilling.balance + this.payForm._origAmount) * 100) / 100;
+      return this.selectedBilling.balance;
+    },
+    todayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+
+    openPayModal(billing) {
+      this.editingPaymentId = null;
+      this.lockBilling = !!billing;
+      this.selectedBillingId = billing ? billing.id : null;
+      this.payForm = { amount: billing ? billing.balance : null, date: this.todayStr(), method: 'Cash', reference: '', remarks: '', _origAmount: 0 };
+      this.payErrors = {};
+      this.openModalCommon();
+    },
+    lastPaymentFor(billing) {
+      const list = this.payments.filter(p => p.billingId === billing.id);
+      return list.length ? list[list.length - 1] : null;
+    },
+    canModifyPayment(payment) {
+      const billing = this.billings.find(b => b.id === payment.billingId);
+      if (!billing) return { ok: false, reason: 'Billing record not found.' };
+      const nextBilling = this.billings.find(b => b.generatedFrom === billing.id);
+      if (nextBilling && nextBilling.amountPaid > 0) {
+        return { ok: false, reason: `Can't be changed — the next billing cycle (due ${formatDate(nextBilling.dueDate)}) already has a payment recorded against it.` };
+      }
+      const forBilling = this.payments.filter(p => p.billingId === billing.id);
+      if (forBilling[forBilling.length - 1].id !== payment.id) {
+        return { ok: false, reason: 'Only the most recent payment on a billing can be edited or deleted.' };
+      }
+      return { ok: true };
+    },
+    openEditPayment(billing) {
+      const payment = this.lastPaymentFor(billing);
+      if (!payment) return;
+      const check = this.canModifyPayment(payment);
+      if (!check.ok) { this.showToast(check.reason); return; }
+      this.editingPaymentId = payment.id;
+      this.lockBilling = true;
+      this.selectedBillingId = billing.id;
+      this.payForm = { amount: payment.amount, date: payment.date, method: payment.method, reference: payment.reference, remarks: payment.remarks, _origAmount: payment.amount };
+      this.payErrors = {};
+      this.openModalCommon();
+    },
+    validatePayForm() {
+      this.payErrors = {};
+      let ok = true;
+      if (!this.selectedBilling) { this.payErrors.billing = true; ok = false; }
+      if (!this.payForm.amount || this.payForm.amount <= 0) {
+        this.payErrors.amount = true; ok = false;
+      } else if (this.selectedBilling && this.payForm.amount > this.payMaxAmount + 0.005) {
+        this.payErrors.amount = true; this.payErrors.amountMsg = 'Payment cannot exceed the remaining balance.'; ok = false;
+      }
+      if (!this.payForm.date) { this.payErrors.date = true; ok = false; }
+      return ok;
+    },
+    submitPayment() {
+      if (!this.validatePayForm()) return;
+      const billing = this.selectedBilling;
+      if (this.editingPaymentId) {
+        this.applyEditedPayment(this.editingPaymentId, billing, this.payForm);
+      } else {
+        this._applyPayment(billing, {
+          amount: Number(this.payForm.amount), date: this.payForm.date, method: this.payForm.method,
+          reference: this.payForm.reference, remarks: this.payForm.remarks,
+        });
+        this.showToast('Payment recorded successfully!');
+      }
+      this.closeModal();
+    },
+    applyEditedPayment(paymentId, billing, form) {
+      const payment = this.payments.find(p => p.id === paymentId);
+      const customer = this.customerById(billing.customerId);
+      // Reverse the payment being edited first…
+      billing.amountPaid = Math.round((billing.amountPaid - payment.amount) * 100) / 100;
+      if (billing.paidAt) {
+        const idx = this.billings.findIndex(b => b.generatedFrom === billing.id);
+        if (idx > -1) this.billings.splice(idx, 1); // safe: guarded to be payment-free by canModifyPayment()
+      }
+      billing.paidAt = null;
+      this.recalcBilling(billing);
+      // …then reapply it with the edited values.
+      payment.amount = Number(form.amount); payment.date = form.date; payment.method = form.method;
+      payment.reference = form.reference; payment.remarks = form.remarks;
+      billing.amountPaid = Math.round((billing.amountPaid + payment.amount) * 100) / 100;
+      this.recalcBilling(billing);
+      if (billing.status === 'Paid' && !billing.paidAt) {
+        billing.paidAt = payment.date;
+        this.generateNextBilling(customer, payment.date, billing.id);
+      }
+      this.showToast('Payment updated successfully!');
+    },
+
+    /* ── Delete Payment confirm ──────────────────────────────────── */
+    paymentDeleteTarget: null,
+    askDeletePayment(billing) {
+      const payment = this.lastPaymentFor(billing);
+      if (!payment) return;
+      const check = this.canModifyPayment(payment);
+      if (!check.ok) { this.showToast(check.reason); return; }
+      this.paymentDeleteTarget = { payment, billing, customer: this.customerById(billing.customerId) };
+    },
+    confirmDeletePayment() {
+      const { payment, billing } = this.paymentDeleteTarget;
+      billing.amountPaid = Math.round((billing.amountPaid - payment.amount) * 100) / 100;
+      if (billing.paidAt) {
+        const idx = this.billings.findIndex(b => b.generatedFrom === billing.id);
+        if (idx > -1) this.billings.splice(idx, 1);
+      }
+      billing.paidAt = null;
+      this.recalcBilling(billing);
+      this.payments.splice(this.payments.findIndex(p => p.id === payment.id), 1);
+      this.showToast('Payment deleted.');
+      this.paymentDeleteTarget = null;
+    },
+  };
+}
+</script>
+</body>
+</html>

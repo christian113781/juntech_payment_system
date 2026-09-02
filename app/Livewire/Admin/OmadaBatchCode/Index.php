@@ -259,11 +259,17 @@ class Index extends Component
 
     private function generateBatchCode(): string
     {
-        $year = now()->format('Y');
-        $month = now()->format('m');
-        $timestamp = now()->format('Hisu'); // Hour, minute, second, microsecond
+        $nameLetters = preg_replace('/[^A-Za-z0-9]/', '', $this->partner->name) ?: 'XX';
+        $namePrefix = strtoupper(str_pad(substr($nameLetters, 0, 2), 2, 'X'));
+        $generatedAt = now();
+        $batchCode = $namePrefix.'-'.$generatedAt->format('Ymd-His');
 
-        return "OM-{$year}-{$month}-" . substr($timestamp, 0, 6);
+        while (OmadaVoucherBatch::where('batch_code', $batchCode)->exists()) {
+            $generatedAt->addSecond();
+            $batchCode = $namePrefix.'-'.$generatedAt->format('Ymd-His');
+        }
+
+        return $batchCode;
     }
 
     public function resetForm(): void
