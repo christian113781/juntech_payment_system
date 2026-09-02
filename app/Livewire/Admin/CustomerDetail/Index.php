@@ -126,6 +126,16 @@ class Index extends Component
             return 'Partial';
         }
 
-        return $billing->due_date && Carbon::parse($billing->due_date)->lt(today()) ? 'Overdue' : 'Due';
+        if (! $billing->due_date) {
+            return 'Due';
+        }
+
+        $dueDate = Carbon::parse($billing->due_date);
+
+        if ($dueDate->lt(today())) {
+            return 'Overdue';
+        }
+
+        return $dueDate->equalTo(today()) ? 'Due' : 'On Time';
     }
 }

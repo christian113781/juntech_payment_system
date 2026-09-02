@@ -18,7 +18,7 @@ class AreaSeeder extends Seeder
             ['code' => 'MCM', 'name' => 'Macgum'],
             ['code' => 'TPM', 'name' => 'Tagum Public Market'],
             ['code' => 'SWN', 'name' => 'Swawon'],
-            ['code' => 'LMB', 'name' => 'Limban'],
+            ['code' => 'LMB', 'name' => 'Limbaan'],
             ['code' => 'MSY', 'name' => 'Mesaoy'],
             ['code' => 'CMB', 'name' => 'Cuambogan'],
         ];
