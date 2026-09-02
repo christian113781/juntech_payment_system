@@ -16,6 +16,7 @@ class EmployeeCashAdvance extends Model
         'amount',
         'amount_paid',
         'balance',
+        'remarks',
     ];
 
     protected $casts = [

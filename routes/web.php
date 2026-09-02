@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
 
 use App\Livewire\Admin\Dashboard\Index as AdminDashboard;
 use App\Livewire\Admin\Area\Index as AreasIndex;
@@ -23,23 +25,24 @@ use App\Livewire\Admin\VendoCollection\Index as VendoCollectionsIndex;
 
 
 
+// Inventory Management
 use App\Livewire\Admin\Category\Index as CategoriesIndex;
 use App\Livewire\Admin\StockMovement\Index as StockMovementsIndex;
 
+// Employee
 use App\Livewire\Admin\Employee\Index as EmployeesIndex;
 use App\Livewire\Admin\Employee\CashAdvance\Index as EmployeeCashAdvancesIndex;
-
 use App\Livewire\Admin\Expenses\Index as ExpensesIndex;
+
+
+// Payroll
+use App\Livewire\Admin\Payroll\Index as PayrollsIndex;
+use App\Http\Controllers\Payroll\EmployeeListController;
+use App\Http\Controllers\Payroll\PayrollHistoryController;
+use App\Http\Controllers\Payroll\SyncEmployeesController;
 
 Route::view('/', 'welcome');
 
-// Route::view('dashboard', 'dashboard')
-//     ->middleware(['auth', 'verified'])
-//     ->name('dashboard');
-
-Route::view('profile', 'profile')
-    ->middleware(['auth'])
-    ->name('profile');
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', AdminDashboard::class)->name('dashboard');
@@ -67,19 +70,25 @@ Route::middleware('auth')->group(function () {
     Route::get('/employees/{employee}/cash-advances', EmployeeCashAdvancesIndex::class)->name('employee-cash-advances.index');
 
     Route::get('/expenses', ExpensesIndex::class)->name('expenses.index');
+
+    Route::get('/payrolls', PayrollsIndex::class)->name('payrolls.index');
+    Route::get('/payrolls/employees', EmployeeListController::class)->name('payrolls.employees');
+    Route::get('/payrolls/history', [PayrollHistoryController::class, 'index'])->name('payrolls.history.index');
+    Route::post('/payrolls/history', [PayrollHistoryController::class, 'store'])->name('payrolls.history.store');
+    Route::get('/payrolls/history/{payrollRun}', [PayrollHistoryController::class, 'show'])->name('payrolls.history.show');
+    Route::delete('/payrolls/history/{payrollRun}', [PayrollHistoryController::class, 'destroy'])->name('payrolls.history.destroy');
+    Route::post('/payrolls/sync-employees', SyncEmployeesController::class)->name('payrolls.sync-employees');
 });
 
-Route::view('/pos', 'temp.placeholder', ['title' => 'Point of Sale'])->name('pos');
-Route::view('/purchase-orders', 'temp.placeholder', ['title' => 'Purchase Orders'])->name('purchase-orders.index');
-Route::view('/suppliers', 'temp.placeholder', ['title' => 'Suppliers'])->name('suppliers.index');
-Route::view('/warehouses', 'temp.placeholder', ['title' => 'Warehouses'])->name('warehouses.index');
-Route::view('/profile', 'temp.placeholder', ['title' => 'My Profile'])->name('profile.show');
 Route::view('/settings', 'temp.placeholder', ['title' => 'Settings'])->name('settings.index');
-Route::view('/profile', 'temp.placeholder', ['title' => 'My Profile'])->name('profile.show');
 Route::view('/settings', 'temp.placeholder', ['title' => 'Settings'])->name('settings.index');
 
 Route::post('/logout', function () {
-    return redirect('/dashboard');
-})->name('logout');
+    Auth::guard('web')->logout();
+    Session::invalidate();
+    Session::regenerateToken();
+
+    return redirect()->route('login');
+})->middleware('auth')->name('logout');
 
 require __DIR__.'/auth.php';

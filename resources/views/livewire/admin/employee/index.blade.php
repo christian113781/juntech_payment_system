@@ -186,8 +186,14 @@
                         <button type="button" wire:click="closeModal()" class="min-h-[44px] rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200">
                             Cancel
                         </button>
-                        <button type="submit" class="min-h-[44px] rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700">
-                            {{ $editingEmployeeId ? 'Save Changes' : 'Save Employee' }}
+                        <button type="submit" wire:loading.attr="disabled" wire:target="saveEmployee"
+                            class="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-70">
+                            <svg wire:loading wire:target="saveEmployee" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span wire:loading.remove wire:target="saveEmployee">{{ $editingEmployeeId ? 'Save Changes' : 'Save Employee' }}</span>
+                            <span wire:loading wire:target="saveEmployee">Saving...</span>
                         </button>
                     </div>
                 </form>
@@ -214,8 +220,14 @@
                     <button type="button" wire:click="closeDeleteModal()" class="min-h-[44px] rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
                         Cancel
                     </button>
-                    <button type="button" wire:click="confirmDelete()" class="min-h-[44px] rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600">
-                        Remove
+                    <button type="button" wire:click="confirmDelete()" wire:loading.attr="disabled" wire:target="confirmDelete"
+                        class="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-70">
+                        <svg wire:loading wire:target="confirmDelete" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span wire:loading.remove wire:target="confirmDelete">Remove</span>
+                        <span wire:loading wire:target="confirmDelete">Removing...</span>
                     </button>
                 </div>
             </div>

@@ -210,7 +210,7 @@
                             </div>
                             <div>
                                 <p class="text-[9px] font-semibold text-gray-400 tracking-wide uppercase" x-text="codeLabel || 'VOUCHER CODE'"></p>
-                                <p class="font-mono font-bold text-gray-900 leading-tight truncate" style="font-size:1.2rem" x-text="sampleCode"></p>
+                                <p class=" font-bold text-gray-900 leading-tight truncate" style="font-size:1.2rem" x-text="sampleCode"></p>
                             </div>
                             <span class="inline-flex w-fit max-w-full items-center px-2.5 py-1 rounded-full text-white text-[10px] font-bold tracking-wide whitespace-nowrap" :style="'background:' + designColor">
                                 <span x-text="('VALID ' + (validity || '24 HOURS')).toUpperCase()"></span>

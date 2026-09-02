@@ -33,6 +33,8 @@ class Index extends Component
 
     public string $amount = '';
 
+    public string $remarks = '';
+
     public bool $showEditModal = false;
 
     public bool $showDeleteModal = false;
@@ -73,6 +75,7 @@ class Index extends Component
         $this->advanceId = null;
         $this->advanceDate = today()->toDateString();
         $this->amount = '';
+        $this->remarks = '';
     }
 
     public function openEditModal(int $advanceId): void
@@ -82,6 +85,7 @@ class Index extends Component
         $this->advanceId = $advance->id;
         $this->advanceDate = $advance->advance_date?->format('Y-m-d') ?? today()->toDateString();
         $this->amount = (string) $advance->amount;
+        $this->remarks = $advance->remarks ?? '';
         $this->showEditModal = true;
     }
 
@@ -91,6 +95,7 @@ class Index extends Component
         $this->advanceId = null;
         $this->advanceDate = today()->toDateString();
         $this->amount = '';
+        $this->remarks = '';
     }
 
     public function openDeleteModal(int $advanceId): void
@@ -123,6 +128,7 @@ class Index extends Component
             'amount' => (float) $this->amount,
             'amount_paid' => 0,
             'balance' => (float) $this->amount,
+            'remarks' => trim($this->remarks) !== '' ? trim($this->remarks) : null,
         ];
 
         if ($this->advanceId) {

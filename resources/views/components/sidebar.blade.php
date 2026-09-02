@@ -211,11 +211,27 @@
                       {{ request()->routeIs('employees.*') ? 'text-brand-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white' }}"
                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M7 16a4 4 0 01-.88-7.9A5.5 5.5 0 0116.5 9H17a4 4 0 110 8H7zm5-8V4m0 0l-2 2m2-2l2 2m-2 8v2m-2-2h4" />
+                            d="M3 20h18M5 20v-4a7 7 0 0114 0v4M4 16h16M12 9V5m-3 4h6" />
                     </svg>
                     <span class="nav-label truncate">Employees</span>
                 </a>
             </li>
+
+             <li>
+                <a href="{{ route('payrolls.index') }}"
+                    class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors
+                  {{ request()->routeIs('payrolls.*') ? 'bg-brand-50 text-brand-700 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700' }}"
+                    @if (request()->routeIs('payrolls.*')) aria-current="page" @endif>
+                    <svg class="w-5 h-5 flex-shrink-0 transition duration-75
+                      {{ request()->routeIs('payrolls.*') ? 'text-brand-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white' }}"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <rect x="4" y="3" width="16" height="18" rx="2" stroke-width="2" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 8h8M8 12h2M12 12h4M8 16h2M12 16h4" />
+                    </svg>
+                    <span class="nav-label truncate">Payroll</span>
+                </a>
+            </li>
+
 
             <li>
                 <a href="{{ route('expenses.index') }}"
@@ -226,7 +242,7 @@
                       {{ request()->routeIs('expenses.*') ? 'text-brand-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white' }}"
                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                            d="M3 21h18M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16M8 7h2m4 0h2M8 11h2m4 0h2M8 15h2m4 0h2M10 21v-3h4v3" />
                     </svg>
                     <span class="nav-label truncate">Expenses</span>
                 </a>
@@ -242,21 +258,6 @@
         <ul class="space-y-0.5">
 
             <li>
-                <a href="{{ route('profile.show') }}"
-                    class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors
-                  {{ request()->routeIs('profile.*') ? 'bg-brand-50 text-brand-700 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700' }}"
-                    @if (request()->routeIs('profile.*')) aria-current="page" @endif>
-                    <svg class="w-5 h-5 flex-shrink-0 transition duration-75
-                      {{ request()->routeIs('profile.*') ? 'text-brand-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white' }}"
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span class="nav-label truncate">Expenses</span>
-                </a>
-            </li>
-
-            <li>
                 <a href="{{ route('settings.index') }}"
                     class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors
                   {{ request()->routeIs('settings.*') ? 'bg-brand-50 text-brand-700 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700' }}"
@@ -266,6 +267,7 @@
                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <circle cx="12" cy="12" r="3" stroke-width="2" />
                     </svg>
                     <span class="nav-label truncate">Settings</span>
                 </a>
@@ -274,30 +276,4 @@
         </ul>
 
     </nav>
-
-    {{-- User --}}
-    <div class="border-t border-gray-100 dark:border-gray-700 px-3 py-4 flex-shrink-0">
-        <div class="user-wrap flex items-center gap-3">
-            <div
-                class="user-avatar w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">
-                {{ auth()->user()?->initials() ?? 'JD' }}
-            </div>
-            <div class="user-info min-w-0">
-                <p class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
-                    {{ auth()->user()?->name ?? 'Guest' }}</p>
-                <p class="text-[11px] text-gray-400 truncate">{{ auth()->user()?->role ?? '' }}</p>
-            </div>
-            <form method="POST" action="{{ route('logout') }}" class="user-info ms-auto">
-                @csrf
-                <button type="submit"
-                    class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    aria-label="Sign out">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                </button>
-            </form>
-        </div>
-    </div>
 </aside>

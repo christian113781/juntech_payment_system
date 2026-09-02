@@ -18,6 +18,85 @@ html { scroll-behavior: smooth; height: 100%; }
 body, .font-sans { font-family: 'Poppins', sans-serif; }
 body { background: #f8f9fc; overflow-x: hidden; min-height: 100%; }
 
+.print-area {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0.5in;
+  }
+
+  body {
+    background: #fff !important;
+    margin: 0 !important;
+  }
+
+  body > div.flex {
+    display: block !important;
+  }
+
+  body > div.flex > * {
+    display: none !important;
+  }
+
+  body > div.flex > div.flex-1 {
+    display: block !important;
+  }
+
+  body > div.flex > div.flex-1 > * {
+    display: none !important;
+  }
+
+  body > div.flex > div.flex-1 > main {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body > div.flex > div.flex-1 > main > .space-y-6 {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  body > div.flex > div.flex-1 > main > .space-y-6 > :not(.print-area) {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .print-area {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: static !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #111827 !important;
+  }
+
+  .print-area *,
+  .print-area *::before,
+  .print-area *::after {
+    visibility: visible !important;
+    color: inherit !important;
+    background: transparent !important;
+  }
+
+  .print-area table {
+    page-break-inside: avoid;
+  }
+}
+
 input[type="search"] {
   -webkit-appearance: none;
   appearance: none;

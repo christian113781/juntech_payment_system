@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Payroll — Inventory Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <!-- Shared dashboard logic (sidebar, toast, notifications, modal plumbing) -->
+  <script src="assets/js/main.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { poppins: ['Poppins', 'sans-serif'] },
+          colors: {
+            brand: {
+              50:  '#f0f4ff', 100: '#e0eaff', 200: '#c7d7fd',
+              400: '#818cf8', 500: '#6366f1', 600: '#4f46e5',
+              700: '#4338ca', 900: '#1e1b4b',
+            },
+          },
+          boxShadow: {
+            card: '0 1px 4px 0 rgba(99,102,241,.08), 0 4px 16px 0 rgba(99,102,241,.06)',
+          },
+        }
+      }
+    }
+  </script>
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- SheetJS — reads the uploaded .xlsx/.xls attendance export entirely in the browser -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="font-poppins text-gray-800 antialiased" x-data="payrollPage()" x-init="init()" x-cloak
+      :class="{ 'printing-payslip': printRow }">
+
+<a href="#main" class="skip-link no-print">Skip to main content</a>
+
+<!-- ════ MOBILE OVERLAY ════ -->
+<div id="sidebar-overlay"
+     class="fixed inset-0 bg-gray-900/50 z-20 lg:hidden no-print"
+     aria-hidden="true"
+     x-show="mobileOpen"
+     x-transition.opacity
+     @click="closeMobileSidebar()"
+     style="display:none"></div>
+
+<!-- ════ TOAST ════ -->
+<div id="toast" role="status" aria-live="polite" aria-atomic="true" class="no-print" :class="{ show: toast.show }">
+  <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+  </svg>
+  <span x-text="toast.msg">Done</span>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     LAYOUT SHELL
+════════════════════════════════════════════════ -->
+<div class="flex min-h-[100dvh] no-print">
+
+  <!-- ════ SIDEBAR ════ -->
+  <aside id="sidebar"
+         aria-label="Primary navigation"
+         class="bg-white flex flex-col shadow-card flex-shrink-0 relative z-30"
+         :class="{ collapsed: sidebarCollapsed, 'mobile-open': mobileOpen }">
+
+    <div class="logo-wrap flex items-center gap-3 px-6 py-5 border-b border-gray-100 flex-shrink-0">
+      <div class="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+        </svg>
+      </div>
+      <div class="logo-text min-w-0">
+        <p class="text-sm font-bold text-gray-900 leading-tight whitespace-nowrap">StockMaster</p>
+        <p class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">Inventory Pro</p>
+      </div>
+    </div>
+
+    <nav class="flex-1 sidebar-scroll py-3 px-2" aria-label="Primary">
+      <template x-for="section in navSections" :key="section.label">
+        <div>
+          <p class="nav-section-label px-3 mb-2 mt-4 first:mt-0 text-[10px] font-semibold text-gray-400 uppercase tracking-wider" x-text="section.label"></p>
+          <ul class="space-y-0.5" role="list">
+            <template x-for="item in section.items" :key="item.name">
+              <li>
+                <a :href="item.href" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-700 transition-colors"
+                   :aria-current="item.active ? 'page' : null" :title="item.name">
+                  <svg class="w-5 h-5 flex-shrink-0" :class="item.active ? 'text-brand-500' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon"/>
+                  </svg>
+                  <span class="nav-label" x-text="item.name"></span>
+                </a>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </template>
+    </nav>
+
+    <div class="border-t border-gray-100 px-3 py-4 flex-shrink-0">
+      <div class="user-wrap flex items-center gap-3">
+        <div class="user-avatar w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold" aria-hidden="true">JD</div>
+        <div class="user-info min-w-0">
+          <p class="text-sm font-semibold text-gray-800 truncate">Juan Dela Cruz</p>
+          <p class="text-[11px] text-gray-400 truncate">Administrator</p>
+        </div>
+        <button class="user-info ms-auto p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" aria-label="Sign out">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN COLUMN ══ -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- ════ HEADER ════ -->
+    <header class="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-sm">
+      <div class="flex items-center gap-3 px-4 sm:px-6 py-3.5">
+        <button id="collapse-btn"
+                class="hidden lg:flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-brand-600 transition-colors flex-shrink-0"
+                :class="{ 'is-collapsed': sidebarCollapsed }"
+                @click="sidebarCollapsed = !sidebarCollapsed"
+                :aria-expanded="(!sidebarCollapsed).toString()" aria-controls="sidebar"
+                :aria-label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v18"/>
+          </svg>
+        </button>
+        <button id="menu-btn"
+                class="lg:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                @click="mobileOpen ? closeMobileSidebar() : openMobileSidebar()"
+                :aria-expanded="mobileOpen.toString()" aria-controls="sidebar"
+                :aria-label="mobileOpen ? 'Close navigation menu' : 'Open navigation menu'">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+        <div class="flex-1 max-w-md">
+          <div class="relative">
+            <svg class="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+            <input id="global-search" type="search" placeholder="Search products, orders…"
+                   class="w-full ps-9 pe-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg placeholder:text-gray-400 focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-100 outline-none transition-colors min-h-[2.75rem]">
+          </div>
+        </div>
+        <div class="flex items-center gap-2 ms-auto">
+          <button @click="toggleDark()"
+                  class="dark-toggle text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10"
+                  :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
+            <svg class="icon-sun w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            <svg class="icon-moon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+            </svg>
+          </button>
+          <div class="relative">
+            <button @click="notifOpen = !notifOpen"
+                    class="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                    :aria-label="'Notifications' + (unreadCount ? ' (' + unreadCount + ' unread)' : '')"
+                    aria-haspopup="true" :aria-expanded="notifOpen.toString()" aria-controls="notif-panel">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+              <span class="absolute top-1.5 end-1.5 w-2 h-2 rounded-full bg-red-500" aria-hidden="true" x-show="unreadCount > 0"></span>
+            </button>
+            <div id="notif-panel" role="menu" aria-label="Notifications"
+                 x-show="notifOpen" x-transition
+                 @click.outside="notifOpen = false" @keydown.escape="notifOpen = false"
+                 class="absolute end-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-card border border-gray-100 z-40 overflow-hidden"
+                 style="display:none">
+              <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <h2 class="text-sm font-bold text-gray-900">Notifications</h2>
+                <button @click="markAllRead()" x-show="unreadCount > 0" class="text-xs font-semibold text-brand-600 hover:text-brand-700">Mark all as read</button>
+              </div>
+              <ul class="max-h-80 overflow-y-auto divide-y divide-gray-50" role="list">
+                <template x-for="n in notifications" :key="n.id">
+                  <li>
+                    <button @click="markRead(n)" class="w-full flex items-start gap-3 px-4 py-3 text-start hover:bg-gray-50/60 transition-colors" :class="{ 'bg-brand-50/40': !n.read }">
+                      <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="n.iconBg" aria-hidden="true">
+                        <svg class="w-4 h-4" :class="n.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="n.icon"/></svg>
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <p class="text-sm font-medium text-gray-800 truncate" x-text="n.title"></p>
+                        <p class="text-xs text-gray-500 mt-0.5" x-text="n.message"></p>
+                        <p class="text-[11px] text-gray-400 mt-1" x-text="n.time"></p>
+                      </div>
+                      <span class="w-2 h-2 rounded-full bg-brand-500 flex-shrink-0 mt-1.5" aria-hidden="true" x-show="!n.read"></span>
+                    </button>
+                  </li>
+                </template>
+              </ul>
+              <div class="px-4 py-3 border-t border-gray-100 text-center">
+                <a href="#" class="text-xs font-semibold text-brand-600 hover:text-brand-700">View all notifications</a>
+              </div>
+            </div>
+          </div>
+          <div class="relative">
+            <button @click="profileOpen = !profileOpen"
+                    class="flex items-center gap-2 p-1 pe-2 rounded-full hover:bg-gray-100 transition-colors"
+                    aria-haspopup="true" :aria-expanded="profileOpen.toString()" aria-controls="profile-panel"
+                    aria-label="Account menu for Juan Dela Cruz">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0" aria-hidden="true">JD</div>
+              <svg class="w-3.5 h-3.5 text-gray-400 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="profile-panel" role="menu" aria-label="Account menu"
+                 x-show="profileOpen" x-transition
+                 @click.outside="profileOpen = false" @keydown.escape="profileOpen = false"
+                 class="absolute end-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-card border border-gray-100 z-40 overflow-hidden"
+                 style="display:none">
+              <div class="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0" aria-hidden="true">JD</div>
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold text-gray-900 truncate">Juan Dela Cruz</p>
+                  <p class="text-xs text-gray-400 truncate">juan.delacruz@stockmaster.ph</p>
+                </div>
+              </div>
+              <ul class="py-1.5" role="list">
+                <li><a href="profile.html" role="menuitem" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                  My Profile
+                </a></li>
+              </ul>
+              <div class="border-t border-gray-100 py-1.5">
+                <button role="menuitem" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                  <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ════════════════════════════════════════════
+         MAIN PAGE — PAYROLL
+    ════════════════════════════════════════════════ -->
+    <main id="main" tabindex="-1" class="flex-1 px-4 sm:px-6 py-6 space-y-6 max-w-[1600px] mx-auto w-full">
+
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Payroll</h1>
+          <p class="text-sm text-gray-500 mt-0.5">Upload a biometric attendance export, review the computed pay, then save or print it.</p>
+        </div>
+        <button @click="showRates = !showRates"
+                class="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-xl transition-colors shadow-sm min-h-[44px] w-full sm:w-auto">
+          <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span x-text="showRates ? 'Hide Employee Rates' : 'Manage Employee Rates'"></span>
+        </button>
+      </div>
+
+      <!-- MINI STATS -->
+      <section aria-labelledby="pstats-heading">
+        <h2 id="pstats-heading" class="sr-only">Current payroll run summary</h2>
+        <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <div><p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Employees</p><p class="text-lg font-bold text-gray-900" x-text="rows.length"></p></div>
+          </div>
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            </div>
+            <div><p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Gross Pay</p><p class="text-lg font-bold text-gray-900" x-text="money(totalGross)"></p></div>
+          </div>
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
+            </div>
+            <div><p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Deductions</p><p class="text-lg font-bold text-gray-900" x-text="money(totalDeduct)"></p></div>
+          </div>
+          <div class="stat-card bg-white rounded-2xl p-4 shadow-card flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+              <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div><p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Net Pay</p><p class="text-lg font-bold text-gray-900" x-text="money(totalNet)"></p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- EMPLOYEE RATE BOOK (collapsible) -->
+      <section x-show="showRates" x-transition x-cloak aria-labelledby="rates-heading" class="bg-white rounded-2xl shadow-card">
+        <div class="p-5 border-b border-gray-100">
+          <h2 id="rates-heading" class="text-sm font-bold text-gray-900">Employee Rate Book</h2>
+          <p class="text-xs text-gray-400 mt-0.5">Daily rates used to compute payroll. Saved on this device.</p>
+        </div>
+        <div class="tbl-wrap">
+          <table class="w-full text-sm" style="min-inline-size:40rem">
+            <thead>
+              <tr class="text-left border-b border-gray-100">
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Name</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Position</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Daily Rate (₱)</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              <template x-for="emp in employees" :key="emp.id">
+                <tr>
+                  <td class="px-5 py-2.5"><input type="text" class="field !py-1.5 !min-h-0" x-model.trim="emp.name" @change="saveEmployees()"></td>
+                  <td class="px-5 py-2.5"><input type="text" class="field !py-1.5 !min-h-0" x-model.trim="emp.position" @change="saveEmployees()"></td>
+                  <td class="px-5 py-2.5"><input type="number" min="0" step="0.01" class="field !py-1.5 !min-h-0 text-end" x-model.number="emp.dailyRate" @change="saveEmployees()"></td>
+                  <td class="px-5 py-2.5 text-end">
+                    <button @click="removeEmployee(emp)" class="inline-flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" :aria-label="'Remove ' + emp.name">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9.5 3h5a1 1 0 011 1v3h-7V4a1 1 0 011-1z"/></svg>
+                    </button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <form @submit.prevent="addEmployee()" class="p-5 border-t border-gray-100 flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+          <div class="w-full sm:w-auto">
+            <label class="block text-xs font-semibold text-gray-600 mb-1.5" for="new-emp-name">Name</label>
+            <input id="new-emp-name" type="text" class="field sm:!w-48" x-model.trim="newEmp.name" placeholder="e.g. MARC" required>
+          </div>
+          <div class="w-full sm:w-auto">
+            <label class="block text-xs font-semibold text-gray-600 mb-1.5" for="new-emp-pos">Position</label>
+            <input id="new-emp-pos" type="text" class="field sm:!w-44" x-model.trim="newEmp.position" placeholder="e.g. Warehouse Staff">
+          </div>
+          <div class="w-full sm:w-auto">
+            <label class="block text-xs font-semibold text-gray-600 mb-1.5" for="new-emp-rate">Daily Rate (₱)</label>
+            <input id="new-emp-rate" type="number" min="0" step="0.01" class="field sm:!w-32" x-model.number="newEmp.dailyRate" placeholder="0.00" required>
+          </div>
+          <button type="submit" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-brand-600 text-white hover:bg-brand-700 transition-colors shadow-sm min-h-[44px] w-full sm:w-auto">+ Add Employee</button>
+        </form>
+      </section>
+
+      <!-- IMPORT ATTENDANCE -->
+      <section aria-labelledby="import-heading" class="bg-white rounded-2xl shadow-card p-5" x-show="!viewingHistoryId">
+        <h2 id="import-heading" class="text-sm font-bold text-gray-900 mb-1">Import Attendance File</h2>
+        <p class="text-xs text-gray-400 mb-4">Upload an attendance export (.xlsx / .xls) — an "Attendance Summary" sheet or the biometric device's "Standard Report" is read automatically.</p>
+
+        <label for="attendance-file" class="upload-zone block cursor-pointer" :class="{ dragover: dragging }"
+               @dragover.prevent="dragging = true" @dragleave.prevent="dragging = false"
+               @drop.prevent="dragging = false; handleFile($event.dataTransfer.files[0])">
+          <div x-show="!parsing">
+            <div class="w-12 h-12 rounded-2xl bg-brand-100 flex items-center justify-center mx-auto mb-3">
+              <svg class="w-6 h-6 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+              </svg>
+            </div>
+            <p class="text-sm font-medium text-gray-700" x-show="!fileName">Drop the attendance file here or <span class="text-brand-600">browse</span></p>
+            <p class="text-sm font-medium text-gray-700" x-show="fileName" x-text="fileName"></p>
+            <p class="text-xs text-gray-400 mt-1">.xlsx or .xls — processed on this device, not uploaded anywhere</p>
+          </div>
+          <p class="text-sm font-medium text-brand-600" x-show="parsing">Reading file…</p>
+        </label>
+        <input id="attendance-file" type="file" accept=".xlsx,.xls" class="sr-only"
+               @change="handleFile($event.target.files[0])" aria-label="Upload attendance file">
+
+        <p class="mt-3 text-sm text-red-500" role="alert" x-show="parseError" x-text="parseError"></p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+          <div>
+            <label for="period-start" class="block text-xs font-semibold text-gray-600 mb-1.5">Period Start</label>
+            <input id="period-start" type="date" class="field" x-model="periodStart">
+          </div>
+          <div>
+            <label for="period-end" class="block text-xs font-semibold text-gray-600 mb-1.5">Period End</label>
+            <input id="period-end" type="date" class="field" x-model="periodEnd">
+          </div>
+          <div>
+            <label for="ot-mult" class="block text-xs font-semibold text-gray-600 mb-1.5">Overtime Multiplier</label>
+            <input id="ot-mult" type="number" min="1" step="0.05" class="field" x-model.number="otMultiplier">
+          </div>
+        </div>
+
+        <div class="flex justify-end mt-4" x-show="rows.length > 0">
+          <button @click="clearImport()" class="text-sm font-semibold text-gray-500 hover:text-red-500 transition-colors">Discard this import</button>
+        </div>
+      </section>
+
+      <!-- ATTENDANCE RECORD (per-employee day-by-day in/out) -->
+      <section aria-labelledby="attendance-heading" class="bg-white rounded-2xl shadow-card" x-show="attendanceEmployees.length > 0" x-cloak>
+        <div class="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 id="attendance-heading" class="text-sm font-bold text-gray-900">Attendance Record</h2>
+            <p class="text-xs text-gray-400 mt-0.5">Pick a name to preview and print that employee's daily check-in / check-out — or view all at once.</p>
+          </div>
+          <button @click="printAttendance()" class="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-xl transition-colors min-h-[44px] w-full sm:w-auto">
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a1 1 0 001-1v-4a1 1 0 00-1-1H9a1 1 0 00-1 1v4a1 1 0 001 1zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            <span x-text="selectedEmployee === '__ALL__' ? 'Print All' : 'Print ' + selectedEmployee + '\u2019s Record'"></span>
+          </button>
+        </div>
+
+        <!-- EMPLOYEE DROPDOWN -->
+        <div class="px-5 pt-4 pb-1">
+          <label for="attendance-employee-select" class="block text-xs font-semibold text-gray-600 mb-1.5">View attendance for</label>
+          <select id="attendance-employee-select" x-model="selectedEmployee" class="field !w-full sm:!w-72">
+            <option value="__ALL__">All Employees</option>
+            <template x-for="name in attendanceEmployees" :key="name">
+              <option :value="name" x-text="name + ' \u2014 ' + absentCount(name) + ' absent'"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- SINGLE-EMPLOYEE VIEW -->
+        <div class="tbl-wrap mt-3" tabindex="0" x-show="selectedEmployee !== '__ALL__'">
+          <table class="w-full text-sm" style="min-inline-size:24rem">
+            <thead>
+              <tr class="border-b border-gray-100 text-left">
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Date</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Time In</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Time Out</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50" x-show="selectedEmployee !== '__ALL__' && attendanceGrid[selectedEmployee]">
+              <template x-for="(dateLabel, dIdx) in attendanceDates" :key="dIdx">
+                <tr class="hover:bg-gray-50/60 transition-colors">
+                  <td class="px-5 py-2.5 font-medium text-gray-700" x-text="dateLabel"></td>
+                  <td class="px-5 py-2.5"
+                      :class="attendanceGrid[selectedEmployee][dIdx].in === 'Absent' ? 'text-red-500 font-medium bg-red-50/50' : 'text-gray-600'"
+                      x-text="attendanceGrid[selectedEmployee][dIdx].in || '—'"></td>
+                  <td class="px-5 py-2.5 text-gray-600" x-text="attendanceGrid[selectedEmployee][dIdx].out || '—'"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ALL-EMPLOYEES VIEW (combined grid) -->
+        <div class="tbl-wrap mt-3" tabindex="0" x-show="selectedEmployee === '__ALL__'" x-cloak>
+          <table class="w-full text-sm text-center" style="min-inline-size:64rem">
+            <thead>
+              <tr class="border-b border-gray-100">
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-left" rowspan="2">Date</th>
+                <template x-for="name in attendanceEmployees" :key="name">
+                  <th scope="col" class="px-4 py-2 font-semibold text-gray-700 text-xs uppercase tracking-wider border-l border-gray-50" colspan="2" x-text="name"></th>
+                </template>
+              </tr>
+              <tr class="border-b border-gray-100">
+                <template x-for="name in attendanceEmployees" :key="name + '-sub'">
+                  <template x-for="lbl in ['In','Out']" :key="name + lbl">
+                    <th scope="col" class="px-4 py-1.5 font-medium text-gray-400 text-[11px] uppercase border-l border-gray-50" x-text="lbl"></th>
+                  </template>
+                </template>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              <template x-for="(dateLabel, dIdx) in attendanceDates" :key="dIdx">
+                <tr class="hover:bg-gray-50/60 transition-colors">
+                  <td class="px-4 py-2.5 text-left font-medium text-gray-700" x-text="dateLabel"></td>
+                  <template x-for="name in attendanceEmployees" :key="name + dIdx">
+                    <template x-for="field in ['in','out']" :key="name + dIdx + field">
+                      <td class="px-4 py-2.5 border-l border-gray-50"
+                          :class="attendanceGrid[name][dIdx][field] === 'Absent' ? 'text-red-500 font-medium bg-red-50/50' : 'text-gray-600'"
+                          x-text="attendanceGrid[name][dIdx][field] || ''"></td>
+                    </template>
+                  </template>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- HISTORY VIEW BANNER -->
+      <div x-show="viewingHistoryId" x-cloak class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-brand-50 border border-brand-100 rounded-2xl px-5 py-3.5">
+        <p class="text-sm text-brand-700">
+          Viewing a saved payroll run for <strong x-text="periodStart + ' – ' + periodEnd"></strong> (read-only).
+          <span x-show="attendanceEmployees.length === 0">This run was saved before attendance records were included, so none are attached.</span>
+        </p>
+        <button @click="backToNew()" class="text-sm font-semibold text-brand-700 hover:text-brand-900 whitespace-nowrap text-left sm:text-inherit">← Back to new import</button>
+      </div>
+
+      <!-- PREVIEW TABLE -->
+      <section aria-labelledby="preview-heading" class="bg-white rounded-2xl shadow-card" x-show="rows.length > 0">
+        <div class="p-5 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div>
+            <h2 id="preview-heading" class="text-sm font-bold text-gray-900">Payroll Preview</h2>
+            <p class="text-xs text-gray-400 mt-0.5" x-show="periodStart && periodEnd">Period: <span x-text="periodStart"></span> – <span x-text="periodEnd"></span></p>
+            <p class="text-xs text-gray-400 mt-1 max-w-2xl">A day counts as worked once the employee has at least one scan — a time in <span class="italic">or</span> a time out — for that date; a day with neither is simply unpaid. Pay = daily rate × days worked, plus overtime and other earnings, minus other deductions and cash advances. Late and absence deductions are turned off for now.</p>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+            <button @click="printRegister()" class="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-xl transition-colors min-h-[44px] w-full sm:w-auto">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a1 1 0 001-1v-4a1 1 0 00-1-1H9a1 1 0 00-1 1v4a1 1 0 001 1zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+              Print Register
+            </button>
+            <button @click="savePayrollRun()" x-show="!viewingHistoryId"
+                    class="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm min-h-[44px] w-full sm:w-auto">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              Save Payroll Run
+            </button>
+          </div>
+        </div>
+
+        <div class="tbl-wrap" tabindex="0" role="region" aria-labelledby="preview-heading">
+          <table class="w-full text-sm" style="min-inline-size:84rem">
+            <thead>
+              <tr class="text-left border-b border-gray-100">
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Employee</th>
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Days</th>
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">OT (hrs)</th>
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Daily Rate</th>
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Basic</th>
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">OT Pay</th>
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Other +</th>
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Other −</th>
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Cash Adv.</th>
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Net Pay</th>
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end no-print">Print</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              <template x-for="(row, idx) in rows" :key="idx">
+                <tr class="hover:bg-gray-50/60 transition-colors" :class="{ 'bg-amber-50/50': !row.matched }">
+                  <td class="px-4 py-2.5">
+                    <p class="font-medium text-gray-800" x-text="row.name"></p>
+                    <p class="text-[11px] text-amber-600" x-show="!row.matched">Not in rate book — set rate</p>
+                  </td>
+                  <td class="px-4 py-2.5 text-end text-gray-600" x-text="row.daysWorked"></td>
+                  <td class="px-4 py-2.5 text-end text-gray-600" x-text="row.overtimeHours"></td>
+                  <td class="px-4 py-2.5 text-end">
+                    <input type="number" min="0" step="0.01" class="field !py-1.5 !min-h-0 !w-24 text-end no-print" x-model.number="row.dailyRate" :disabled="viewingHistoryId">
+                    <span class="hidden print:inline" x-text="money(row.dailyRate)"></span>
+                  </td>
+                  <td class="px-4 py-2.5 text-end text-gray-700" x-text="money(basicSalary(row))"></td>
+                  <td class="px-4 py-2.5 text-end text-gray-700" x-text="money(overtimeAmount(row))"></td>
+                  <td class="px-4 py-2.5 text-end">
+                    <input type="number" min="0" step="0.01" class="field !py-1.5 !min-h-0 !w-24 text-end no-print" x-model.number="row.otherEarnings" :disabled="viewingHistoryId">
+                    <span class="hidden print:inline" x-text="money(row.otherEarnings)"></span>
+                  </td>
+                  <td class="px-4 py-2.5 text-end">
+                    <input type="number" min="0" step="0.01" class="field !py-1.5 !min-h-0 !w-24 text-end no-print" x-model.number="row.otherDeductions" :disabled="viewingHistoryId">
+                    <span class="hidden print:inline" x-text="money(row.otherDeductions)"></span>
+                  </td>
+                  <td class="px-4 py-2.5 text-end">
+                    <input type="number" min="0" step="0.01" class="field !py-1.5 !min-h-0 !w-24 text-end no-print" x-model.number="row.cashAdvance" :disabled="viewingHistoryId">
+                    <span class="hidden print:inline" x-text="money(row.cashAdvance)"></span>
+                  </td>
+                  <td class="px-4 py-2.5 text-end font-bold text-gray-900" x-text="money(netSalary(row))"></td>
+                  <td class="px-4 py-2.5 text-end no-print">
+                    <button @click="openPayslip(row)" class="inline-flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" :aria-label="'Print payslip for ' + row.name">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a1 1 0 001-1v-4a1 1 0 00-1-1H9a1 1 0 00-1 1v4a1 1 0 001 1zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    </button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+            <tfoot>
+              <tr class="border-t border-gray-100 font-bold text-gray-900 bg-gray-50/60">
+                <td class="px-4 py-3" colspan="4">Totals</td>
+                <td class="px-4 py-3 text-end" x-text="money(rows.reduce((s,r)=>s+basicSalary(r),0))"></td>
+                <td class="px-4 py-3 text-end" x-text="money(rows.reduce((s,r)=>s+overtimeAmount(r),0))"></td>
+                <td class="px-4 py-3 text-end" colspan="3"></td>
+                <td class="px-4 py-3 text-end" x-text="money(totalNet)"></td>
+                <td class="no-print"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <!-- PAYROLL HISTORY -->
+      <section aria-labelledby="history-heading" class="bg-white rounded-2xl shadow-card">
+        <div class="p-5 border-b border-gray-100">
+          <h2 id="history-heading" class="text-sm font-bold text-gray-900">Payroll History</h2>
+          <p class="text-xs text-gray-400 mt-0.5">Saved runs, kept on this device for recall and reprinting.</p>
+        </div>
+        <div class="tbl-wrap">
+          <table class="w-full text-sm" style="min-inline-size:52rem">
+            <thead>
+              <tr class="text-left border-b border-gray-100">
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Period</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Source File</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Employees</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Net Pay</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Generated</th>
+                <th scope="col" class="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              <template x-for="run in sortedHistory" :key="run.id">
+                <tr class="hover:bg-gray-50/60 transition-colors">
+                  <td class="px-5 py-3 font-medium text-gray-800" x-text="run.periodStart + ' – ' + run.periodEnd"></td>
+                  <td class="px-5 py-3 text-gray-500 text-xs" x-text="run.attendanceFile || '—'"></td>
+                  <td class="px-5 py-3 text-end text-gray-600" x-text="run.rows.length"></td>
+                  <td class="px-5 py-3 text-end font-semibold text-gray-800" x-text="money(run.rows.reduce((s,r)=>s+r.netSalary,0))"></td>
+                  <td class="px-5 py-3 text-gray-500 text-xs" x-text="run.generatedAt"></td>
+                  <td class="px-5 py-3 text-end">
+                    <div class="flex items-center justify-end gap-1">
+                      <button @click="viewHistory(run)" class="inline-flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" :aria-label="'View payroll run ' + run.periodStart">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                      </button>
+                      <button @click="deleteHistory(run)" class="inline-flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" :aria-label="'Delete payroll run ' + run.periodStart">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9.5 3h5a1 1 0 011 1v3h-7V4a1 1 0 011-1z"/></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="history.length === 0">
+                <td colspan="6" class="px-5 py-10 text-center text-sm text-gray-400">No payroll runs saved yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="border-t border-gray-100 px-6 py-4 text-center text-xs text-gray-400">
+      StockMaster Inventory Pro &copy; 2026
+    </footer>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PRINT: ATTENDANCE RECORD (day-by-day in/out grid)
+════════════════════════════════════════════════ -->
+<template x-if="printMode === 'attendance'">
+<div class="print-area">
+  <div class="flex items-center justify-between mb-1">
+    <div>
+      <h1 style="font-size:1.25rem;font-weight:700;">StockMaster Inventory Pro</h1>
+      <p style="font-size:.8rem;color:#555;">Attendance Record Report</p>
+    </div>
+    <p style="font-size:.8rem;color:#555;">Printed: <span x-text="new Date().toLocaleString()"></span></p>
+  </div>
+  <p style="font-size:.85rem;margin-bottom:.75rem;">Period: <strong x-text="periodStart + ' – ' + periodEnd"></strong></p>
+  <table style="width:100%;border-collapse:collapse;font-size:.7rem;">
+    <thead>
+      <tr style="border-bottom:2px solid #333;text-align:left;">
+        <th style="padding:.3rem;">Date</th>
+        <template x-for="name in attendanceEmployees" :key="name">
+          <th style="padding:.3rem;text-align:center;" colspan="2" x-text="name"></th>
+        </template>
+      </tr>
+      <tr style="border-bottom:1px solid #999;text-align:center;">
+        <th style="padding:.2rem;"></th>
+        <template x-for="name in attendanceEmployees" :key="name + '-sub'">
+          <template x-for="lbl in ['In','Out']" :key="name + lbl">
+            <th style="padding:.2rem;font-weight:500;color:#555;" x-text="lbl"></th>
+          </template>
+        </template>
+      </tr>
+    </thead>
+    <tbody>
+      <template x-for="(dateLabel, dIdx) in attendanceDates" :key="dIdx">
+        <tr style="border-bottom:1px solid #ddd;">
+          <td style="padding:.3rem;font-weight:600;" x-text="dateLabel"></td>
+          <template x-for="name in attendanceEmployees" :key="name + dIdx">
+            <template x-for="field in ['in','out']" :key="name + dIdx + field">
+              <td style="padding:.3rem;text-align:center;"
+                  :style="attendanceGrid[name][dIdx][field] === 'Absent' ? 'color:#c0392b;' : ''"
+                  x-text="attendanceGrid[name][dIdx][field] || ''"></td>
+            </template>
+          </template>
+        </tr>
+      </template>
+    </tbody>
+  </table>
+</div>
+</template>
+
+<!-- ════════════════════════════════════════════════
+     PRINT: SINGLE EMPLOYEE ATTENDANCE RECORD
+════════════════════════════════════════════════ -->
+<template x-if="printMode === 'attendance-single' && selectedEmployee !== '__ALL__' && attendanceGrid[selectedEmployee]">
+<div class="print-area">
+  <div class="flex items-center justify-between mb-1">
+    <div>
+      <h1 style="font-size:1.25rem;font-weight:700;">StockMaster Inventory Pro</h1>
+      <p style="font-size:.8rem;color:#555;">Attendance Record — <span x-text="selectedEmployee"></span></p>
+    </div>
+    <p style="font-size:.8rem;color:#555;">Printed: <span x-text="new Date().toLocaleString()"></span></p>
+  </div>
+  <p style="font-size:.85rem;margin-bottom:.75rem;">Period: <strong x-text="periodStart + ' – ' + periodEnd"></strong></p>
+  <table style="width:100%;border-collapse:collapse;font-size:.8rem;">
+    <thead>
+      <tr style="border-bottom:2px solid #333;text-align:left;">
+        <th style="padding:.4rem;">Date</th>
+        <th style="padding:.4rem;">Time In</th>
+        <th style="padding:.4rem;">Time Out</th>
+      </tr>
+    </thead>
+    <tbody>
+      <template x-for="(dateLabel, dIdx) in attendanceDates" :key="dIdx">
+        <tr style="border-bottom:1px solid #ddd;">
+          <td style="padding:.4rem;font-weight:600;" x-text="dateLabel"></td>
+          <td style="padding:.4rem;"
+              :style="attendanceGrid[selectedEmployee][dIdx].in === 'Absent' ? 'color:#c0392b;' : ''"
+              x-text="attendanceGrid[selectedEmployee][dIdx].in || ''"></td>
+          <td style="padding:.4rem;" x-text="attendanceGrid[selectedEmployee][dIdx].out || ''"></td>
+        </tr>
+      </template>
+    </tbody>
+  </table>
+</div>
+</template>
+
+<!-- ════════════════════════════════════════════════
+     PRINT: PAYROLL REGISTER (whole table)
+════════════════════════════════════════════════ -->
+<template x-if="printMode === 'register'">
+<div class="print-area">
+  <div class="flex items-center justify-between mb-1">
+    <div>
+      <h1 style="font-size:1.25rem;font-weight:700;">StockMaster Inventory Pro</h1>
+      <p style="font-size:.8rem;color:#555;">Payroll Register</p>
+    </div>
+    <p style="font-size:.8rem;color:#555;">Printed: <span x-text="new Date().toLocaleString()"></span></p>
+  </div>
+  <p style="font-size:.85rem;margin-bottom:.75rem;">Period: <strong x-text="periodStart + ' – ' + periodEnd"></strong></p>
+  <table style="width:100%;border-collapse:collapse;font-size:.75rem;">
+    <thead>
+      <tr style="border-bottom:2px solid #333;text-align:left;">
+        <th style="padding:.35rem;">Employee</th>
+        <th style="padding:.35rem;text-align:right;">Days</th>
+        <th style="padding:.35rem;text-align:right;">OT (hrs)</th>
+        <th style="padding:.35rem;text-align:right;">Rate</th>
+        <th style="padding:.35rem;text-align:right;">Basic</th>
+        <th style="padding:.35rem;text-align:right;">OT Pay</th>
+        <th style="padding:.35rem;text-align:right;">Deductions</th>
+        <th style="padding:.35rem;text-align:right;">Net Pay</th>
+      </tr>
+    </thead>
+    <tbody>
+      <template x-for="(row, idx) in rows" :key="idx">
+        <tr style="border-bottom:1px solid #ddd;">
+          <td style="padding:.35rem;" x-text="row.name"></td>
+          <td style="padding:.35rem;text-align:right;" x-text="row.daysWorked"></td>
+          <td style="padding:.35rem;text-align:right;" x-text="row.overtimeHours"></td>
+          <td style="padding:.35rem;text-align:right;" x-text="money(row.dailyRate)"></td>
+          <td style="padding:.35rem;text-align:right;" x-text="money(basicSalary(row))"></td>
+          <td style="padding:.35rem;text-align:right;" x-text="money(overtimeAmount(row))"></td>
+          <td style="padding:.35rem;text-align:right;" x-text="money(totalDeductions(row))"></td>
+          <td style="padding:.35rem;text-align:right;font-weight:700;" x-text="money(netSalary(row))"></td>
+        </tr>
+      </template>
+    </tbody>
+    <tfoot>
+      <tr style="border-top:2px solid #333;font-weight:700;">
+        <td style="padding:.4rem;" colspan="8">Total Net Pay</td>
+        <td style="padding:.4rem;text-align:right;" x-text="money(totalNet)"></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+</template>
+
+<!-- ════════════════════════════════════════════════
+     PRINT: INDIVIDUAL PAYSLIP
+════════════════════════════════════════════════ -->
+<template x-if="printMode === 'payslip' && printRow">
+<div class="print-area">
+    <div>
+      <div style="display:flex;justify-content:space-between;border-bottom:2px solid #333;padding-bottom:.5rem;margin-bottom:.75rem;">
+        <div>
+          <h1 style="font-size:1.15rem;font-weight:700;">StockMaster Inventory Pro</h1>
+          <p style="font-size:.8rem;color:#555;">Employee Payslip</p>
+        </div>
+        <p style="font-size:.8rem;color:#555;text-align:right;">Period<br><strong x-text="periodStart + ' – ' + periodEnd"></strong></p>
+      </div>
+      <table style="width:100%;font-size:.85rem;margin-bottom:.75rem;">
+        <tr><td style="padding:.2rem 0;color:#555;">Employee</td><td style="padding:.2rem 0;font-weight:700;text-align:right;" x-text="printRow.name"></td></tr>
+        <tr><td style="padding:.2rem 0;color:#555;">Position</td><td style="padding:.2rem 0;text-align:right;" x-text="printRow.position || '—'"></td></tr>
+        <tr><td style="padding:.2rem 0;color:#555;">Daily Rate</td><td style="padding:.2rem 0;text-align:right;" x-text="money(printRow.dailyRate)"></td></tr>
+      </table>
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+        <tr style="border-bottom:1px solid #ccc;"><td style="padding:.35rem 0;">Days Worked</td><td style="padding:.35rem 0;text-align:right;" x-text="printRow.daysWorked"></td></tr>
+        <tr style="border-bottom:1px solid #ccc;"><td style="padding:.35rem 0;">Basic Pay</td><td style="padding:.35rem 0;text-align:right;" x-text="money(basicSalary(printRow))"></td></tr>
+        <tr style="border-bottom:1px solid #ccc;"><td style="padding:.35rem 0;">Overtime (<span x-text="printRow.overtimeHours"></span> hrs)</td><td style="padding:.35rem 0;text-align:right;" x-text="money(overtimeAmount(printRow))"></td></tr>
+        <tr style="border-bottom:1px solid #ccc;"><td style="padding:.35rem 0;">Other Earnings</td><td style="padding:.35rem 0;text-align:right;" x-text="money(printRow.otherEarnings)"></td></tr>
+        <tr style="border-bottom:1px solid #333;font-weight:700;"><td style="padding:.35rem 0;">Gross Pay</td><td style="padding:.35rem 0;text-align:right;" x-text="money(grossSalary(printRow))"></td></tr>
+        <tr style="border-bottom:1px solid #ccc;"><td style="padding:.35rem 0;">Other Deductions</td><td style="padding:.35rem 0;text-align:right;" x-text="money(printRow.otherDeductions)"></td></tr>
+        <tr style="border-bottom:1px solid #333;"><td style="padding:.35rem 0;">Cash Advance</td><td style="padding:.35rem 0;text-align:right;" x-text="money(printRow.cashAdvance)"></td></tr>
+        <tr style="font-weight:700;font-size:1rem;"><td style="padding:.5rem 0;">Net Pay</td><td style="padding:.5rem 0;text-align:right;" x-text="money(netSalary(printRow))"></td></tr>
+      </table>
+      <div style="display:flex;justify-content:space-between;margin-top:3rem;font-size:.8rem;">
+        <div style="text-align:center;width:45%;"><div style="border-top:1px solid #333;padding-top:.35rem;">Prepared By</div></div>
+        <div style="text-align:center;width:45%;"><div style="border-top:1px solid #333;padding-top:.35rem;">Employee Signature</div></div>
+      </div>
+    </div>
+</div>
+</template>
+
+<script>
+function payrollPage() {
+  return {
+    /* ── shared chrome ─────── */
+    ...sharedChrome('payroll.html'),
+
+    /* ── settings ── */
+    otMultiplier: 1.25,
+
+    /* ── rate book ── */
+    employees: [],
+    showRates: false,
+    newEmp: { name: '', position: '', dailyRate: '' },
+
+    /* ── current import ── */
+    fileName: '',
+    periodStart: '',
+    periodEnd: '',
+    dragging: false,
+    rows: [],
+    parsing: false,
+    parseError: '',
+
+    /* ── history ── */
+    history: [],
+    viewingHistoryId: null,
+
+    /* ── attendance grid (day-by-day in/out) ── */
+    attendanceDates: [],
+    attendanceEmployees: [],
+    attendanceGrid: {},
+    selectedEmployee: '',
+
+    /* ── printing ── */
+    printMode: null, // 'register' | 'payslip' | 'attendance' | 'attendance-single'
+    printRow: null,
+
+    init() {
+      this.loadEmployees();
+      this.loadHistory();
+    },
+
+    /* ── rate book persistence ── */
+    loadEmployees() {
+      const saved = localStorage.getItem('sm-employees');
+      if (saved) { this.employees = JSON.parse(saved); return; }
+      this.employees = [
+        { id: 1, name: 'MARC',  position: 'Technician', dailyRate: 500 },
+        { id: 2, name: 'JOJO',  position: 'Technician',   dailyRate: 500 },
+        { id: 3, name: 'EDGAR', position: 'Technician',   dailyRate: 500 },
+        { id: 4, name: 'JR',    position: 'Technician',    dailyRate: 500 },
+        { id: 5, name: 'KING',  position: 'Technician',    dailyRate: 500 },
+        { id: 6, name: 'EDRED', position: 'Technician',   dailyRate: 500 },
+      ];
+      this.saveEmployees();
+    },
+    saveEmployees() { localStorage.setItem('sm-employees', JSON.stringify(this.employees)); },
+    addEmployee() {
+      if (!this.newEmp.name || !this.newEmp.dailyRate) return;
+      const nextId = this.employees.length ? Math.max(...this.employees.map(e => e.id)) + 1 : 1;
+      this.employees.push({ id: nextId, name: this.newEmp.name, position: this.newEmp.position, dailyRate: Number(this.newEmp.dailyRate) });
+      this.newEmp = { name: '', position: '', dailyRate: '' };
+      this.saveEmployees();
+      this.showToast('Employee added to rate book');
+    },
+    removeEmployee(emp) {
+      if (!confirm(`Remove ${emp.name} from the rate book?`)) return;
+      this.employees = this.employees.filter(e => e.id !== emp.id);
+      this.saveEmployees();
+    },
+
+    /* ── history persistence ── */
+    loadHistory() {
+      const saved = localStorage.getItem('sm-payroll-history');
+      if (saved) { this.history = JSON.parse(saved); return; }
+      this.history = [{
+        id: 1,
+        periodStart: '2026-07-20', periodEnd: '2026-07-31',
+        attendanceFile: '15_StandardReport_July.xls',
+        generatedAt: '2026-08-01 09:14',
+        rows: [
+          { name: 'MARC',  position: 'Branch Supervisor', dailyRate: 610, daysWorked: 9,  lateMinutes: 0,   absentDays: 1, overtimeHours: 0,   otherEarnings: 0, otherDeductions: 0, cashAdvance: 0,   basicSalary: 5490, overtimeAmount: 0,    lateDeduction: 0,     absenceDeduction: 610,  grossSalary: 5490, netSalary: 4880 },
+          { name: 'JOJO',  position: 'Warehouse Staff',   dailyRate: 580, daysWorked: 8,  lateMinutes: 180, absentDays: 2, overtimeHours: 3.5, otherEarnings: 0, otherDeductions: 0, cashAdvance: 500, basicSalary: 4640, overtimeAmount: 253.75, lateDeduction: 261.25, absenceDeduction: 1160, grossSalary: 4893.75, netSalary: 2972.5 },
+          { name: 'EDGAR', position: 'Warehouse Staff',   dailyRate: 580, daysWorked: 8,  lateMinutes: 210, absentDays: 2, overtimeHours: 2,   otherEarnings: 0, otherDeductions: 0, cashAdvance: 0,   basicSalary: 4640, overtimeAmount: 145,    lateDeduction: 304.85, absenceDeduction: 1160, grossSalary: 4785, netSalary: 3320.15 },
+        ],
+      }];
+      this.saveHistory();
+    },
+    saveHistory() { localStorage.setItem('sm-payroll-history', JSON.stringify(this.history)); },
+    get sortedHistory() { return this.history.slice().sort((a, b) => b.generatedAt.localeCompare(a.generatedAt)); },
+
+    /* ── file import ── */
+    handleFile(file) {
+      if (!file) return;
+      if (!/\.(xlsx|xls)$/i.test(file.name)) { this.showToast('Please upload an .xlsx or .xls file'); return; }
+      this.fileName = file.name;
+      this.parsing = true;
+      this.parseError = '';
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const wb = XLSX.read(data, { type: 'array', cellDates: false });
+          this.parseWorkbook(wb);
+        } catch (err) {
+          this.parseError = 'This file could not be read. Make sure it is a valid Excel export.';
+        } finally {
+          this.parsing = false;
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    },
+
+    parseWorkbook(wb) {
+      this.parseError = '';
+      this.rows = [];
+      this.viewingHistoryId = null;
+
+      // Preferred format: a flat "Attendance Summary" sheet — one row per date,
+      // with "<Name> - In" / "<Name> - Out" column pairs per employee.
+      const summary = this.parseAttendanceSummarySheet(wb);
+      if (summary) {
+        this.attendanceDates = summary.dates;
+        this.attendanceEmployees = summary.employees;
+        this.attendanceGrid = summary.grid;
+        this.selectedEmployee = '__ALL__';
+        if (summary.period) { this.periodStart = summary.period.start; this.periodEnd = summary.period.end; }
+
+        // Build the payroll rows straight from the in/out grid: a day counts as
+        // worked once there's at least one scan for it (see computeAttendanceStats).
+        this.rows = summary.employees.map(name => {
+          const stats = this.computeAttendanceStats(name);
+          return this.buildRow({
+            name,
+            daysWorked: stats.daysWorked,
+            absentDays: stats.absentDays,
+            lateMinutes: 0,
+            leaveMinutes: 0,
+            overtimeHours: 0,
+          });
+        });
+
+        this.showToast(`Imported ${this.rows.length} employee record${this.rows.length > 1 ? 's' : ''}`);
+        return;
+      }
+
+      // Fallback: the biometric device's "Standard Report" export (Attendance Statistics + Card Report sheets).
+      let sheetName = wb.SheetNames.find(n => /att.*stat/i.test(n)) || wb.SheetNames.find(n => /statistical/i.test(n));
+      if (!sheetName) { this.parseError = 'Could not find an "Attendance Summary" or "Att. Stat." (Attendance Statistics) sheet in this file.'; return; }
+
+      const grid = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, raw: false, defval: '' });
+
+      // Period range, e.g. "2026-08-20 ~ 2026-08-31"
+      const rangeRe = /(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/;
+      outer: for (const row of grid) {
+        for (const cell of row) {
+          const m = String(cell).match(rangeRe);
+          if (m) { this.periodStart = m[1]; this.periodEnd = m[2]; break outer; }
+        }
+      }
+
+      const headerIdx = grid.findIndex(row => row.includes('ID') && row.includes('Name'));
+      if (headerIdx === -1) { this.parseError = 'Could not read the attendance table headers — this file\'s layout looks different than expected.'; return; }
+
+      const parseHM = (v) => { const s = String(v || '0:00'); const parts = s.split(':').map(Number); return (parts[0] || 0) + (parts[1] || 0) / 60; };
+
+      const parsed = [];
+      for (let i = headerIdx + 2; i < grid.length; i++) {
+        const r = grid[i];
+        const id = r[0], name = r[1];
+        if (!name || isNaN(parseInt(id))) continue;
+        const attDays = String(r[11] || '0/0').split('/');
+        parsed.push({
+          name: String(name).trim(),
+          daysWorked: Number(attDays[1] || 0),
+          lateMinutes: Number(r[6] || 0),
+          leaveMinutes: Number(r[8] || 0),
+          overtimeHours: Math.round((parseHM(r[9]) + parseHM(r[10])) * 100) / 100,
+          absentDays: Number(r[13] || 0),
+        });
+      }
+      if (!parsed.length) { this.parseError = 'No employee rows were found in the attendance sheet.'; return; }
+
+      this.parseAttendanceGrid(wb);
+
+      // Recompute days worked / absences from the actual in/out scans rather than
+      // trusting the device's own totals (see computeAttendanceStats).
+      this.rows = parsed.map(p => {
+        const key = this.gridKeyFor(p.name);
+        if (key) {
+          const stats = this.computeAttendanceStats(p.name);
+          p = { ...p, daysWorked: stats.daysWorked, absentDays: stats.absentDays };
+        }
+        return this.buildRow(p);
+      });
+
+      this.selectedEmployee = '__ALL__';
+      this.showToast(`Imported ${this.rows.length} employee record${this.rows.length > 1 ? 's' : ''}`);
+    },
+
+    /* Reads a flat "Attendance Summary" sheet: one header row starting with "Date",
+       followed by "<Name> - In" / "<Name> - Out" column pairs per employee, one row per date. */
+    parseAttendanceSummarySheet(wb) {
+      const sheetName = wb.SheetNames.find(n => /attendance\s*summary/i.test(n));
+      if (!sheetName) return null;
+
+      const grid = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, raw: false, defval: '' });
+
+      const rangeRe = /(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/;
+      let period = null;
+      outer: for (const row of grid) {
+        for (const cell of row) {
+          const m = String(cell).match(rangeRe);
+          if (m) { period = { start: m[1], end: m[2] }; break outer; }
+        }
+      }
+
+      const headerIdx = grid.findIndex(row => String(row[0]).trim().toLowerCase() === 'date');
+      if (headerIdx === -1) return null;
+      const header = grid[headerIdx];
+
+      const cols = [];
+      for (let c = 1; c < header.length; c++) {
+        const m = String(header[c] || '').trim().match(/^(.*)\s-\sIn$/i);
+        if (m) cols.push({ name: m[1].trim(), inCol: c, outCol: c + 1 });
+      }
+      if (!cols.length) return null;
+
+      const employees = cols.map(c => c.name);
+      const empGrid = {};
+      employees.forEach(name => empGrid[name] = []);
+      const dates = [];
+
+      for (let r = headerIdx + 1; r < grid.length; r++) {
+        const row = grid[r];
+        const dateLabel = row[0];
+        if (dateLabel === undefined || String(dateLabel).trim() === '') continue;
+        dates.push(String(dateLabel).trim());
+        cols.forEach(({ name, inCol, outCol }) => {
+          empGrid[name].push({ in: row[inCol] || '', out: row[outCol] || '' });
+        });
+      }
+      if (!dates.length) return null;
+
+      return { dates, employees, grid: empGrid, period };
+    },
+
+    /* Count of "Absent" days for one employee in the current attendance grid — shown as a tab badge. */
+    absentCount(name) {
+      const recs = this.attendanceGrid[name] || [];
+      return recs.filter(r => r.in === 'Absent').length;
+    },
+
+    /* Attendance grid keys can be cased differently than the rate-book employee
+       name (e.g. "Marc" vs "MARC") — match case-insensitively. */
+    gridKeyFor(name) {
+      const target = String(name || '').trim().toLowerCase();
+      return Object.keys(this.attendanceGrid).find(k => k.trim().toLowerCase() === target);
+    },
+
+    /* ── How days worked are computed ──────────────────────────────
+       A date counts as ONE day worked as soon as there's at least one
+       scan for it — a time in OR a time out. A missing punch on one
+       side (forgot to time in / forgot to time out) still counts as a
+       full day worked, not a half day or a late deduction. A date with
+       no scan on either side counts as an absence. ─────────────── */
+    computeAttendanceStats(name) {
+      const key = this.gridKeyFor(name);
+      const recs = key ? this.attendanceGrid[key] : [];
+      let daysWorked = 0, absentDays = 0;
+      recs.forEach(r => {
+        const hasIn = r.in && r.in !== 'Absent';
+        const hasOut = r.out && r.out !== 'Absent';
+        if (hasIn || hasOut) daysWorked++;
+        else absentDays++;
+      });
+      return { daysWorked, absentDays };
+    },
+
+    /* Reads the "Card Report" sheets (named like "1.2.3", "4.5.6") which lay out
+       employees in blocks of 3, 15 columns wide, with a 12-row daily in/out grid. */
+    parseAttendanceGrid(wb) {
+      const cardSheets = wb.SheetNames.filter(n => /^\d+(\.\d+)*$/.test(n));
+      if (!cardSheets.length) { this.attendanceDates = []; this.attendanceEmployees = []; this.attendanceGrid = {}; return; }
+
+      const employees = [];
+      const grid = {};
+      let dates = null;
+
+      for (const sheetName of cardSheets) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, raw: false, defval: '' });
+        if (rows.length < 23) continue;
+        const nameRow = rows[2];
+        const blockCount = Math.ceil(nameRow.length / 15);
+        for (let b = 0; b < blockCount; b++) {
+          const base = b * 15;
+          const name = String(nameRow[base + 9] || '').trim();
+          if (!name) continue;
+          const theseDates = [];
+          const recs = [];
+          for (let r = 11; r <= 22 && r < rows.length; r++) {
+            const row = rows[r];
+            theseDates.push(row[base] || '');
+            recs.push({ in: row[base + 1] || '', out: row[base + 3] || '' });
+          }
+          if (!dates) dates = theseDates;
+          employees.push(name);
+          grid[name] = recs;
+        }
+      }
+
+      if (!employees.length) { this.attendanceDates = []; this.attendanceEmployees = []; this.attendanceGrid = {}; return; }
+      this.attendanceDates = dates;
+      this.attendanceEmployees = employees;
+      this.attendanceGrid = grid;
+    },
+
+    buildRow(p) {
+      const emp = this.employees.find(e => e.name.trim().toLowerCase() === p.name.toLowerCase());
+      return {
+        name: p.name,
+        position: emp ? emp.position : '',
+        dailyRate: emp ? emp.dailyRate : 0,
+        matched: !!emp,
+        daysWorked: p.daysWorked,
+        lateMinutes: p.lateMinutes,
+        leaveMinutes: p.leaveMinutes,
+        overtimeHours: p.overtimeHours,
+        absentDays: p.absentDays,
+        otherEarnings: 0,
+        otherDeductions: 0,
+        cashAdvance: 0,
+      };
+    },
+
+    clearImport() {
+      this.rows = []; this.fileName = ''; this.periodStart = ''; this.periodEnd = ''; this.parseError = '';
+      this.attendanceDates = []; this.attendanceEmployees = []; this.attendanceGrid = {}; this.selectedEmployee = '__ALL__';
+    },
+
+    /* ── payroll math (assumes an 8-hour day; OT paid at otMultiplier × hourly rate) ── */
+    hourly(row) { return row.dailyRate / 8; },
+    basicSalary(row) { return row.dailyRate * row.daysWorked; },
+    overtimeAmount(row) { return row.overtimeHours * this.hourly(row) * this.otMultiplier; },
+    /* Late deduction is disabled for now — days worked is computed straight from
+       time-in/time-out scans instead (see computeAttendanceStats). Kept as a
+       no-op function, rather than deleted, so it's easy to re-enable later. */
+    lateDeduction(row) { return 0; },
+    /* Absence deduction is disabled for now too — an unworked day already
+       isn't paid (it's simply excluded from daysWorked), so deducting it
+       again here would double-count it. Kept as a no-op, not deleted. */
+    absenceDeduction(row) { return 0; },
+    grossSalary(row) { return this.basicSalary(row) + this.overtimeAmount(row) + Number(row.otherEarnings || 0); },
+    totalDeductions(row) { return this.lateDeduction(row) + this.absenceDeduction(row) + Number(row.otherDeductions || 0) + Number(row.cashAdvance || 0); },
+    netSalary(row) { return this.grossSalary(row) - this.totalDeductions(row); },
+
+    get totalGross() { return this.rows.reduce((s, r) => s + this.grossSalary(r), 0); },
+    get totalDeduct() { return this.rows.reduce((s, r) => s + this.totalDeductions(r), 0); },
+    get totalNet() { return this.rows.reduce((s, r) => s + this.netSalary(r), 0); },
+
+    /* ── save / recall ── */
+    savePayrollRun() {
+      if (!this.rows.length) return;
+      if (!this.periodStart || !this.periodEnd) { this.showToast('Please set the payroll period dates'); return; }
+      const snapshot = this.rows.map(r => ({
+        name: r.name, position: r.position, dailyRate: r.dailyRate,
+        daysWorked: r.daysWorked, lateMinutes: r.lateMinutes, absentDays: r.absentDays, overtimeHours: r.overtimeHours,
+        otherEarnings: Number(r.otherEarnings || 0), otherDeductions: Number(r.otherDeductions || 0), cashAdvance: Number(r.cashAdvance || 0),
+        basicSalary: this.basicSalary(r), overtimeAmount: this.overtimeAmount(r),
+        lateDeduction: this.lateDeduction(r), absenceDeduction: this.absenceDeduction(r),
+        grossSalary: this.grossSalary(r), netSalary: this.netSalary(r),
+      }));
+      const nextId = this.history.length ? Math.max(...this.history.map(h => h.id)) + 1 : 1;
+      this.history.push({
+        id: nextId, periodStart: this.periodStart, periodEnd: this.periodEnd,
+        attendanceFile: this.fileName,
+        generatedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        rows: snapshot,
+        // Save the day-by-day time in/out grid too, so it can still be
+        // reviewed and printed when this run is opened from history later.
+        attendanceDates: this.attendanceDates,
+        attendanceEmployees: this.attendanceEmployees,
+        attendanceGrid: this.attendanceGrid,
+      });
+      this.saveHistory();
+      this.showToast('Payroll run saved to history');
+      this.clearImport();
+    },
+
+    viewHistory(run) {
+      this.viewingHistoryId = run.id;
+      this.periodStart = run.periodStart; this.periodEnd = run.periodEnd; this.fileName = run.attendanceFile;
+      this.rows = run.rows.map(r => ({ ...r, matched: true }));
+      // Older saved runs (before attendance was included) won't have this — fall back to empty.
+      this.attendanceDates = run.attendanceDates || [];
+      this.attendanceEmployees = run.attendanceEmployees || [];
+      this.attendanceGrid = run.attendanceGrid || {};
+      this.selectedEmployee = '__ALL__';
+    },
+    backToNew() { this.viewingHistoryId = null; this.clearImport(); },
+    deleteHistory(run) {
+      if (!confirm(`Delete the saved payroll run for ${run.periodStart} – ${run.periodEnd}? This cannot be undone.`)) return;
+      this.history = this.history.filter(h => h.id !== run.id);
+      this.saveHistory();
+      if (this.viewingHistoryId === run.id) this.backToNew();
+    },
+
+    /* ── printing ── */
+    printRegister() {
+      this.printMode = 'register';
+      this.$nextTick(() => {
+        window.print();
+        setTimeout(() => { this.printMode = null; }, 300);
+      });
+    },
+    printAttendance() {
+      this.printMode = this.selectedEmployee === '__ALL__' ? 'attendance' : 'attendance-single';
+      this.$nextTick(() => {
+        window.print();
+        setTimeout(() => { this.printMode = null; }, 300);
+      });
+    },
+    openPayslip(row) {
+      this.printMode = 'payslip';
+      this.printRow = row;
+      this.$nextTick(() => {
+        window.print();
+        setTimeout(() => { this.printMode = null; this.printRow = null; }, 300);
+      });
+    },
+
+    money(n) { return '₱' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
+  };
+}
+</script>
+</body>
+</html>

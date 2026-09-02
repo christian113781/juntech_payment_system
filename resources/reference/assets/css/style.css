@@ -148,30 +148,6 @@ body { font-family: 'Poppins', sans-serif; background: #f8f9fc; overflow-x: hidd
 }
 #delete-backdrop.open { opacity: 1; pointer-events: auto; }
 
-/* ══════════════════════════════════════════════
-   DRAWER (slide-over, e.g. Employee Details)
-══════════════════════════════════════════════ */
-#drawer-backdrop {
-  position: fixed; inset: 0; background: rgba(15,23,42,.55);
-  z-index: 50; opacity: 0; pointer-events: none;
-  transition: opacity .25s ease;
-}
-#drawer-backdrop.open { opacity: 1; pointer-events: auto; }
-
-#drawer-panel {
-  position: fixed; inset-block: 0; inset-inline-end: 0;
-  width: min(100%, 30rem);
-  background: #fff;
-  box-shadow: -20px 0 60px rgba(30,27,75,.18);
-  transform: translateX(100%);
-  transition: transform .3s cubic-bezier(.4,0,.2,1);
-  overflow-y: auto;
-  scrollbar-width: thin; scrollbar-color: #c7d7fd transparent;
-}
-#drawer-backdrop.open #drawer-panel { transform: translateX(0); }
-
-.dark #drawer-panel { background: #1e2133; }
-
 /* ── drag-to-upload zone ─────────────────────── */
 .upload-zone {
   border: 2px dashed #c7d7fd; border-radius: .75rem;
@@ -230,6 +206,18 @@ body { font-family: 'Poppins', sans-serif; background: #f8f9fc; overflow-x: hidd
 
 /* ── Alpine cloak ─────────────────────────────── */
 [x-cloak] { display: none !important; }
+
+/* ══════════════════════════════════════════════
+   PRINT (generic — any page can use #print-area)
+══════════════════════════════════════════════ */
+.print-area { display: none; }
+@media print {
+  @page { margin: 12mm; }
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { display: block !important; position: absolute; inset-block-start: 0; inset-inline-start: 0; width: 100%; }
+  .no-print { display: none !important; }
+}
 /* ══════════════════════════════════════════════
    DARK MODE
    Toggled by adding .dark to <html>
