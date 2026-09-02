@@ -468,7 +468,7 @@
 
                     const { jsPDF } = window.jspdf;
                     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-                    const pageW = 210, pageH = 297, margin = 4, gap = 1.5, cols = 6, rows = 12;
+                    const pageW = 210, pageH = 297, margin = 4, gap = 1.5, cols = 4, rows = 10;
                     const cardW = (pageW - margin * 2 - gap * (cols - 1)) / cols;
                     const cardH = (pageH - margin * 2 - gap * (rows - 1)) / rows;
                     const perPage = cols * rows;
@@ -521,7 +521,7 @@
                     try {
                         const { jsPDF } = window.jspdf;
                         const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-                        const pageW = 210, pageH = 297, margin = 4, gap = 1.5, cols = 5, rows = 12;
+                        const pageW = 210, pageH = 297, margin = 4, gap = 1.5, cols = 5, rows = 11;
                         const cardW = (pageW - margin * 2 - gap * (cols - 1)) / cols;
                         const cardH = (pageH - margin * 2 - gap * (rows - 1)) / rows;
                         const perPage = cols * rows;
@@ -588,7 +588,7 @@
                     doc.saveGraphicsState();
                     doc.setGState(new window.jspdf.GState({ opacity: 0.08 }));
                     doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(18);
+                    doc.setFontSize(20);
                     doc.setTextColor(accentRgb.r, accentRgb.g, accentRgb.b);
                     doc.text(watermark, centerX, centerY, { angle: -35, align: 'center' });
                     doc.restoreGraphicsState();
@@ -597,35 +597,35 @@
                     const contentW = w - 13;
 
                     doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(6.2);
+                    doc.setFontSize(7.5);
                     doc.setTextColor(accentRgb.r, accentRgb.g, accentRgb.b);
-                    doc.text(brand, cX, y + 4.1);
+                    doc.text(brand, cX, y + 4.8);
                     doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(3.8);
+                    doc.setFontSize(4.5);
                     doc.setTextColor(120, 120, 120);
-                    doc.text(tagline, cX, y + 6.4);
+                    doc.text(tagline, cX, y + 7.3);
                     doc.setDrawColor(220, 220, 220);
                     doc.setLineWidth(0.14);
-                    doc.line(cX, y + 7.2, x + contentW, y + 7.2);
+                    doc.line(cX, y + 8.2, x + contentW, y + 8.2);
 
-                    doc.setFontSize(3.5);
-                    doc.setTextColor(140, 140, 140);
-                    doc.text(label, cX, y + 10.7);
+                    doc.setFontSize(4.8);
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(label, cX, y + 12.2);
                     doc.setFont('courier', 'bold');
-                    doc.setFontSize(5.9);
-                    doc.setTextColor(15, 15, 15);
-                    doc.text(code, cX, y + 15.3);
+                    doc.setFontSize(14.5);
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(code, cX, y + 17.8);
 
                     doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(3.9);
+                    doc.setFontSize(4.6);
                     const badgeText = 'VALID ' + validity;
-                    const badgeW = doc.getTextWidth(badgeText) + 2.8;
+                    const badgeW = doc.getTextWidth(badgeText) + 3.2;
                     doc.setFillColor(accentRgb.r, accentRgb.g, accentRgb.b);
-                    doc.roundedRect(cX, y + 17.6, badgeW, 3.6, 0.8, 0.8, 'F');
+                    doc.roundedRect(cX, y + 20.1, badgeW, 4.4, 0.9, 0.9, 'F');
                     doc.setTextColor(255, 255, 255);
-                    doc.text(badgeText, cX + 1.1, y + 19.9);
+                    doc.text(badgeText, cX + 1.2, y + 22.9);
 
-                    const qrSize = Math.min(Math.max(9, h * 0.32), 13);
+                    const qrSize = Math.min(Math.max(12, h * 0.38), 16);
                     const qrX = x + w - qrSize - 2.2;
                     const qrY = y + (h - qrSize) / 2 - 0.6;
                     if (qrDataUrl) {
@@ -636,9 +636,9 @@
                         doc.roundedRect(qrX, qrY, qrSize, qrSize, 0.8, 0.8, 'S');
                     }
                     doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(3.1);
+                    doc.setFontSize(3.4);
                     doc.setTextColor(150, 150, 150);
-                    doc.text('SCAN TO CONNECT', qrX + qrSize / 2, qrY + qrSize + 2.6, { align: 'center' });
+                    doc.text('SCAN TO CONNECT', qrX + qrSize / 2, qrY + qrSize + 2.8, { align: 'center' });
                 }
             };
         }
