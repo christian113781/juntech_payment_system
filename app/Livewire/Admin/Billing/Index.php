@@ -25,6 +25,10 @@ class Index extends Component
 
     public string $sortDir = 'asc';
 
+    public int $perPage = 50;
+
+    public int $currentPage = 1;
+
     public int $selectedBillingId = 0;
 
     public ?int $editingPaymentId = null;
@@ -257,6 +261,42 @@ class Index extends Component
         $this->statusFilter = '';
         $this->monthFilter = now()->month;
         $this->yearFilter = now()->year;
+        $this->currentPage = 1;
+    }
+
+    public function updatedQuery(): void
+    {
+        $this->currentPage = 1;
+    }
+
+    public function updatedStatusFilter(): void
+    {
+        $this->currentPage = 1;
+    }
+
+    public function updatedMonthFilter(): void
+    {
+        $this->currentPage = 1;
+    }
+
+    public function updatedYearFilter(): void
+    {
+        $this->currentPage = 1;
+    }
+
+    public function previousPage(): void
+    {
+        $this->currentPage = max(1, $this->currentPage - 1);
+    }
+
+    public function nextPage(int $totalPages): void
+    {
+        $this->currentPage = min($totalPages, $this->currentPage + 1);
+    }
+
+    public function goToPage(int $page, int $totalPages): void
+    {
+        $this->currentPage = max(1, min($page, $totalPages));
     }
 
     public function toggleSort(string $field): void
@@ -267,6 +307,8 @@ class Index extends Component
             $this->sortBy = $field;
             $this->sortDir = 'asc';
         }
+
+        $this->currentPage = 1;
     }
 
     public function render()
@@ -340,10 +382,17 @@ class Index extends Component
             'outstanding' => array_sum(array_map(fn (array $billing) => $billing['balance'], $filteredBillings)),
         ];
 
+        $totalPages = max(1, (int) ceil(count($filteredBillings) / $this->perPage));
+        $this->currentPage = max(1, min($this->currentPage, $totalPages));
+        $offset = ($this->currentPage - 1) * $this->perPage;
+        $paginatedBillings = array_slice($filteredBillings, $offset, $this->perPage);
+
         return view('livewire.admin.billing.index', [
-            'filteredBillings' => $filteredBillings,
+            'filteredBillings' => $paginatedBillings,
             'summary' => $summary,
-            'selectedBilling' => $this->selectedBillingId ? collect($filteredBillings)->firstWhere('id', $this->selectedBillingId) : null,
+            'selectedBilling' => $this->selectedBillingId ? collect($paginatedBillings)->firstWhere('id', $this->selectedBillingId) : null,
+            'totalPages' => $totalPages,
+            'totalFilteredBillings' => count($filteredBillings),
             'monthOptions' => [
                 ['value' => 1, 'label' => 'January'], ['value' => 2, 'label' => 'February'], ['value' => 3, 'label' => 'March'],
                 ['value' => 4, 'label' => 'April'], ['value' => 5, 'label' => 'May'], ['value' => 6, 'label' => 'June'],

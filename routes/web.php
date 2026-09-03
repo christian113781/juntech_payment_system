@@ -90,8 +90,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/customers/{customer}/details', CustomerDetailsIndex::class)->name('customer-details.index');
 });
 
-Route::view('/settings', 'temp.placeholder', ['title' => 'Settings'])->name('settings.index');
-Route::view('/settings', 'temp.placeholder', ['title' => 'Settings'])->name('settings.index');
 
 Route::post('/logout', function () {
     Auth::guard('web')->logout();

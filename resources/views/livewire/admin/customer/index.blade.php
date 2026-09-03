@@ -76,10 +76,10 @@
 
     @if ($showModal)
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4">
-            <div class="w-full max-w-2xl rounded-[1.25rem] bg-white shadow-card dark:bg-gray-800">
+            <div class="my-auto max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-[1.25rem] bg-white shadow-card dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="customer-modal-title">
                 <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5 dark:border-gray-700">
                     <div>
-                        <h2 class="text-lg font-bold text-gray-900 dark:text-white">
+                        <h2 id="customer-modal-title" class="text-lg font-bold text-gray-900 dark:text-white">
                             {{ $editingCustomerId ? 'Edit Customer' : 'Add New Customer' }}
                         </h2>
                         <p class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">

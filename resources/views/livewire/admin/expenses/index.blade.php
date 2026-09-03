@@ -103,10 +103,10 @@
 
     @if ($showModal)
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4">
-            <div class="w-full max-w-2xl rounded-[1.25rem] bg-white p-5 shadow-card dark:bg-gray-800">
+            <div class="my-auto max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-[1.25rem] bg-white p-5 shadow-card dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
                 <div class="mb-5 flex items-start justify-between gap-3">
                     <div>
-                        <h2 class="text-xl font-bold text-gray-900 dark:text-white">
+                        <h2 id="expense-modal-title" class="text-xl font-bold text-gray-900 dark:text-white">
                             {{ $editingExpenseId ? 'Edit Expense' : 'Add Expense' }}
                         </h2>
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Record a company expense</p>

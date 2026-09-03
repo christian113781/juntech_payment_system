@@ -261,8 +261,21 @@
             </table>
         </div>
 
-        <div class="flex items-center justify-between gap-3 border-t border-gray-100 px-5 py-4 text-xs text-gray-500">
-            <p>Showing <strong>{{ count($filteredBillings) }}</strong> billing record{{ count($filteredBillings) !== 1 ? 's' : '' }} for <strong>{{ \Illuminate\Support\Carbon::create($yearFilter, $monthFilter, 1)->translatedFormat('F Y') }}</strong></p>
-        </div>
+        @if ($totalFilteredBillings > 0)
+            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-5 py-4 text-xs text-gray-500">
+                <p>Showing <strong>{{ (($currentPage - 1) * $perPage) + 1 }}–{{ min($currentPage * $perPage, $totalFilteredBillings) }}</strong> of <strong>{{ $totalFilteredBillings }}</strong> billing records for <strong>{{ \Illuminate\Support\Carbon::create($yearFilter, $monthFilter, 1)->translatedFormat('F Y') }}</strong></p>
+                <div class="flex items-center gap-1">
+                    <button type="button" wire:click="previousPage" @disabled($currentPage <= 1) class="min-h-[36px] rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">Prev</button>
+                    @for ($page = 1; $page <= $totalPages; $page++)
+                        <button type="button" wire:click="goToPage({{ $page }}, {{ $totalPages }})" class="h-9 w-9 rounded-lg text-xs font-semibold {{ $page === $currentPage ? 'bg-brand-600 text-white' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50' }}">{{ $page }}</button>
+                    @endfor
+                    <button type="button" wire:click="nextPage({{ $totalPages }})" @disabled($currentPage >= $totalPages) class="min-h-[36px] rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+                </div>
+            </div>
+        @else
+            <div class="border-t border-gray-100 px-5 py-4 text-xs text-gray-500">
+                No billing records to display for <strong>{{ \Illuminate\Support\Carbon::create($yearFilter, $monthFilter, 1)->translatedFormat('F Y') }}</strong>
+            </div>
+        @endif
     </section>
 </div>

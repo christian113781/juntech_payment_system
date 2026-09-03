@@ -3,7 +3,9 @@
 namespace App\Livewire\Admin\Customer;
 
 use App\Models\Area;
+use App\Models\Billing;
 use App\Models\Customer;
+use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -22,7 +24,7 @@ class Index extends Component
 
     public string $sortBy = 'name';
 
-    public int $perPage = 10;
+    public int $perPage = 50;
 
     public int $currentPage = 1;
 
@@ -218,6 +220,12 @@ class Index extends Component
         if ($this->editingCustomerId) {
             $customer = Customer::findOrFail($this->editingCustomerId);
             $customer->update($payload);
+            $this->updateCurrentAndNextBillings(
+                $customer,
+                (float) $payload['monthly_price'],
+                Carbon::parse($payload['billing_start_date']),
+                (int) $payload['billing_cycle_days'],
+            );
             session()->flash('success', 'Customer updated successfully.');
             $this->dispatch('toast', message: 'Customer updated successfully.');
         } else {
@@ -247,6 +255,52 @@ class Index extends Component
 
         $this->closeModal();
         $this->loadCustomers();
+    }
+
+    protected function updateCurrentAndNextBillings(
+        Customer $customer,
+        float $monthlyPrice,
+        Carbon $billingStartDate,
+        int $billingCycleDays,
+    ): void
+    {
+        $billings = $customer->billings()
+            ->with('paymentAllocations')
+            ->whereDate('period_end', '>=', today())
+            ->orderBy('period_start')
+            ->limit(2)
+            ->get();
+
+        foreach ($billings as $index => $billing) {
+            if ($index === 0) {
+                $periodEnd = $billingStartDate->copy()->addDays($billingCycleDays - 1);
+                $billing->period_start = $billingStartDate->toDateString();
+                $billing->period_end = $periodEnd->toDateString();
+                $billing->due_date = $periodEnd->toDateString();
+            }
+
+            $amountPaid = (float) $billing->paymentAllocations->sum('amount');
+            $billing->amount_due = $monthlyPrice;
+            $billing->amount_paid = round($amountPaid, 2);
+            $billing->balance = round(max(0, $monthlyPrice - $amountPaid), 2);
+            $billing->status = $this->resolveBillingStatus($billing, $amountPaid, $monthlyPrice);
+            $billing->save();
+        }
+    }
+
+    protected function resolveBillingStatus(Billing $billing, float $amountPaid, float $monthlyPrice): string
+    {
+        if ($amountPaid >= $monthlyPrice) {
+            return 'paid';
+        }
+
+        if ($amountPaid > 0) {
+            return 'partial';
+        }
+
+        return $billing->due_date && Carbon::parse($billing->due_date)->lt(today())
+            ? 'overdue'
+            : 'unpaid';
     }
 
     public function confirmDelete(): void

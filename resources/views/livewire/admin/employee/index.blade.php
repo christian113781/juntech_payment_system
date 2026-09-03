@@ -95,10 +95,10 @@
 
     @if ($showModal)
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4">
-            <div class="w-full max-w-2xl rounded-[1.25rem] bg-white p-5 shadow-card dark:bg-gray-800">
+            <div class="my-auto max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-[1.25rem] bg-white p-5 shadow-card dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="employee-modal-title">
                 <div class="mb-5 flex items-start justify-between gap-3">
                     <div>
-                        <h2 class="text-xl font-bold text-gray-900 dark:text-white">
+                        <h2 id="employee-modal-title" class="text-xl font-bold text-gray-900 dark:text-white">
                             {{ $editingEmployeeId ? 'Edit Employee' : 'Add New Employee' }}
                         </h2>
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
