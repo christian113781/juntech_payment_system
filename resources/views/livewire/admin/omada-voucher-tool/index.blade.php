@@ -151,7 +151,7 @@
 
                 <div>
                     <label for="vd-brand" class="block text-xs font-semibold text-gray-600 mb-1.5 dark:text-gray-300">Store name</label>
-                    <input id="vd-brand" type="text" class="field dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" x-model.trim="brand" placeholder="JUNTECH">
+                    <input id="vd-brand" type="text" class="field dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" x-model.trim="brand" placeholder="JUN WIFI">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -201,11 +201,11 @@
                     <div class="relative flex rounded-xl border-2 overflow-hidden h-[130px] w-full max-w-sm" :style="'border-color:' + designColor + '; background:' + backgroundColor">
                         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <span class="font-black tracking-[0.35rem] text-[26px] uppercase opacity-10 select-none"
-                                  :style="'color:' + designColor" x-text="(brand || 'JUNTECH').slice(0, 8)"></span>
+                                  :style="'color:' + designColor" x-text="(brand || 'JUN WIFI').slice(0, 8)"></span>
                         </div>
                         <div class="flex-1 min-w-0 px-3.5 py-2.5 flex flex-col justify-between relative z-10">
                             <div>
-                                <p class="text-base font-extrabold tracking-tight leading-none truncate" :style="'color:' + designColor" x-text="brand || 'JUNTECH'"></p>
+                                <p class="text-base font-extrabold tracking-tight leading-none truncate" :style="'color:' + designColor" x-text="brand || 'JUN WIFI'"></p>
                                 <p class="text-[9px] font-semibold text-gray-400 tracking-widest uppercase mt-1" x-text="tagline || 'WI-FI VOUCHER'"></p>
                             </div>
                             <div>
@@ -354,7 +354,7 @@
                 },
                 get codeCount() { return this.codesList.length; },
                 get sampleCode() { return this.codesList[0] || ''; },
-                brand: 'JUNTECH',
+                brand: 'JUN WIFI',
                 codeLabel: 'VOUCHER CODE',
                 validity: '24 HOURS',
                 tagline: 'WI-FI VOUCHER',
@@ -567,7 +567,7 @@
                     }
                 },
                 drawCard(doc, x, y, w, h, code, qrDataUrl) {
-                    const brand = this.brand || 'JUNTECH';
+                    const brand = this.brand || 'JUN WIFI';
                     const label = this.codeLabel || 'VOUCHER CODE';
                     const validity = (this.validity || '24 HOURS').toUpperCase();
                     const tagline = (this.tagline || 'WI-FI VOUCHER').toUpperCase();
@@ -582,7 +582,7 @@
                     doc.setLineWidth(0.35);
                     doc.roundedRect(x, y, w, h, 1.8, 1.8, 'S');
 
-                    const watermark = (brand || 'JUNTECH').substring(0, 8).toUpperCase();
+                    const watermark = (brand || 'JUN WIFI').substring(0, 8).toUpperCase();
                     const centerX = x + w / 2;
                     const centerY = y + h / 2;
                     doc.saveGraphicsState();
