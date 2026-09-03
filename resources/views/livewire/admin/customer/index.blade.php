@@ -76,8 +76,8 @@
 
     @if ($showModal)
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4">
-            <div class="my-auto max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-[1.25rem] bg-white shadow-card dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="customer-modal-title">
-                <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5 dark:border-gray-700">
+            <div class="my-auto flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-[1.25rem] bg-white shadow-card dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="customer-modal-title">
+                <div class="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-5 dark:border-gray-700">
                     <div>
                         <h2 id="customer-modal-title" class="text-lg font-bold text-gray-900 dark:text-white">
                             {{ $editingCustomerId ? 'Edit Customer' : 'Add New Customer' }}
@@ -96,7 +96,8 @@
                     </button>
                 </div>
 
-                <form wire:submit="saveCustomer" class="space-y-4 px-6 py-5">
+                <form wire:submit="saveCustomer" class="flex min-h-0 flex-1 flex-col px-6 py-5">
+                    <div class="min-h-0 flex-1 space-y-4 overflow-y-auto pe-1">
                     <div>
                         <label for="customer-name" class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-300">Customer Name <span class="text-red-500">*</span></label>
                         <input id="customer-name" type="text" wire:model="name" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 @error('name') border-red-300 bg-red-50 @enderror" placeholder="e.g. Juan Dela Cruz">
@@ -186,7 +187,9 @@
                         @enderror
                     </div>
 
-                    <div class="flex items-center justify-end gap-3 pt-2">
+                    </div>
+
+                    <div class="flex shrink-0 items-center justify-end gap-3 pt-4">
                         <button type="button" wire:click="closeModal()" class="min-h-[44px] rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200">Cancel</button>
                         <button type="submit" class="min-h-[44px] rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700" wire:loading.attr="disabled" wire:target="saveCustomer">
                             <span wire:loading.remove wire:target="saveCustomer">{{ $editingCustomerId ? 'Save Changes' : 'Add Customer' }}</span>
