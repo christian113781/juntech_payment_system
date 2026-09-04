@@ -468,9 +468,9 @@
 
                     const { jsPDF } = window.jspdf;
                     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-                    const pageW = 210, pageH = 297, margin = 4, gap = 1.5, cols = 4, rows = 10;
-                    const cardW = (pageW - margin * 2 - gap * (cols - 1)) / cols;
-                    const cardH = (pageH - margin * 2 - gap * (rows - 1)) / rows;
+                    const pageW = 210, pageH = 297, marginX = 4, marginTop = 10, marginBottom = 10, gap = 1.5, cols = 4, rows = 10;
+                    const cardW = (pageW - marginX * 2 - gap * (cols - 1)) / cols;
+                    const cardH = (pageH - marginTop - marginBottom - gap * (rows - 1)) / rows;
                     const perPage = cols * rows;
                     const codes = this.codesList;
                     let placed = 0;
