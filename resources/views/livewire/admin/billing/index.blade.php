@@ -254,7 +254,14 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-5 py-10 text-center text-sm text-gray-400">No billing records match your filters.</td>
+                            <td colspan="6" class="px-5 py-10 text-center text-sm text-gray-400">
+                                <div class="flex flex-col items-center justify-center gap-2">
+                                    <svg class="h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 14.25h6m-6-3h6m2.25-7.5H6.75A2.25 2.25 0 004.5 6v12a2.25 2.25 0 002.25 2.25h10.5A2.25 2.25 0 0019.5 18V6a2.25 2.25 0 00-2.25-2.25zM9 7.5h.008v.008H9V7.5z" />
+                                    </svg>
+                                    <span>No billing records match your filters.</span>
+                                </div>
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>

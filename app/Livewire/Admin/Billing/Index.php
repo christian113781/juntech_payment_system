@@ -66,7 +66,7 @@ class Index extends Component
         $this->payForm = [
             'billing_id' => $billing?->id,
             'months' => 1,
-            'amount' => $billing ? (string) max(0, (float) $billing->amount_due) : '',
+            'amount' => $billing ? (string) max(0, (float) $billing->amount_due - (float) $billing->amount_paid) : '',
             'date' => today()->toDateString(),
             'method' => 'Cash',
             'reference' => '',
@@ -121,9 +121,18 @@ class Index extends Component
         $remainingBalance = $billing
             ? round(max(0, (float) $billing->amount_due - (float) $billing->amount_paid), 2)
             : 0;
+        $editedPaymentAmount = 0;
 
-        if ($billing && $amount > $remainingBalance) {
-            $this->payErrors['amount'] = 'Payment amount cannot exceed the remaining balance of '.number_format($remainingBalance, 2).'.';
+        if ($billing && $this->editingPaymentId) {
+            $editedPaymentAmount = (float) PaymentAllocation::where('payment_id', $this->editingPaymentId)
+                ->where('billing_id', $billing->id)
+                ->value('amount');
+        }
+
+        $maximumAllowedAmount = round($remainingBalance + $editedPaymentAmount, 2);
+
+        if ($billing && $amount > $maximumAllowedAmount) {
+            $this->payErrors['amount'] = 'Payment amount cannot exceed the available balance of '.number_format($maximumAllowedAmount, 2).'.';
         }
 
         if ($selectedMonths < 1 || $selectedMonths > 12) {
@@ -192,11 +201,14 @@ class Index extends Component
                 return;
             }
 
-            $basePeriodStart = Carbon::parse($billing->period_start);
+            $paymentDate = Carbon::parse($this->payForm['date']);
+            $billingCycleDays = max(1, (int) ($billing->customer->billing_cycle_days ?? 32));
 
             for ($monthOffset = 1; $monthOffset <= $selectedMonths; $monthOffset++) {
-                $nextPeriodStart = $basePeriodStart->copy()->addMonths($monthOffset);
-                $nextPeriodEnd = $nextPeriodStart->copy()->addMonth()->subDay();
+                $nextPeriodStart = $monthOffset === 1
+                    ? $paymentDate->copy()
+                    : $paymentDate->copy()->addDays($billingCycleDays * ($monthOffset - 1) + 1);
+                $nextPeriodEnd = $nextPeriodStart->copy()->addDays($billingCycleDays);
                 $nextDueDate = $nextPeriodEnd->copy();
 
                 $nextBilling = Billing::create([
@@ -324,6 +336,7 @@ class Index extends Component
                     'id' => $billing->id,
                     'customer_id' => $billing->customer_id,
                     'name' => $billing->customer?->name ?? 'Unknown',
+                    'customer_status' => $billing->customer?->status ?? 'active',
                     'area' => $billing->customer?->area?->name ?? '—',
                     'contact_number' => $billing->customer?->contact_number ?? '',
                     'period_start' => $billing->period_start?->toDateString(),
@@ -345,6 +358,10 @@ class Index extends Component
             })->all();
 
         $filteredBillings = array_values(array_filter($billings, function (array $billing) {
+            if ($billing['customer_status'] === 'disconnected' && $billing['balance'] <= 0) {
+                return false;
+            }
+
             $search = strtolower(trim($this->query));
             $customerName = strtolower($billing['name']);
             $area = strtolower($billing['area']);

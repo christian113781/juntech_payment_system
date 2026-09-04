@@ -23,7 +23,7 @@
                 <div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Monthly Price</dt><dd class="mt-0.5 font-medium text-gray-800">₱{{ number_format((float) $customer->monthly_price, 2) }}</dd></div>
                 <div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Billing Cycle</dt><dd class="mt-0.5 font-medium text-gray-800">{{ $customer->billing_cycle_days }} days</dd></div>
                 <div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Contact Number</dt><dd class="mt-0.5 font-medium text-gray-800">{{ $customer->contact_number ?: '—' }}</dd></div>
-                <div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Billing Start Date</dt><dd class="mt-0.5 font-medium text-gray-800">{{ $customer->billing_start_date?->format('M d, Y') ?? '—' }}</dd></div>
+                <div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Billing Start Date</dt><dd class="mt-0.5 font-medium text-gray-800">{{ $customer->latest_billing_date?->format('M d, Y') ?? '—' }}</dd></div>
                 <div class="sm:col-span-2"><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Address</dt><dd class="mt-0.5 font-medium text-gray-800">{{ $customer->address ?: '—' }}</dd></div>
                 @if ($customer->remarks)
                     <div class="sm:col-span-2"><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Remarks</dt><dd class="mt-0.5 text-gray-600">{{ $customer->remarks }}</dd></div>

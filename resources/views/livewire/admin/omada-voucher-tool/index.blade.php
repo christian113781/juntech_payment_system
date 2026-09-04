@@ -176,9 +176,10 @@
                     <span x-text="isGenerating ? 'Generating… ' + genProgress + '%' : 'Download'"></span>
                 </button>
 
-                <button type="button" @click="openPdfPreview()" :disabled="isGenerating || !codeCount || step !== 2" class="w-full flex items-center justify-center gap-2 px-5 py-3 border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold rounded-xl transition-colors min-h-[48px] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17h10v4H7v-4zm0-9h10m-10 0V3h10v5M7 13h10v4H7v-4z"/></svg>
-                    Print
+                <button type="button" @click="openPdfPreview()" :disabled="isGenerating || isPreviewing || !codeCount || step !== 2" class="w-full flex items-center justify-center gap-2 px-5 py-3 border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold rounded-xl transition-colors min-h-[48px] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800">
+                    <svg x-show="!isPreviewing" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17h10v4H7v-4zm0-9h10m-10 0V3h10v5M7 13h10v4H7v-4z"/></svg>
+                    <svg x-show="isPreviewing" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-6.66l1.42-1.42M4.92 19.08l1.42-1.42M19.08 19.08l-1.42-1.42M4.92 4.92L6.34 6.34"/></svg>
+                    <span x-text="isPreviewing ? 'Preparing' : 'Print'"></span>
                 </button>
             </div>
         </div>
@@ -464,42 +465,51 @@
                 },
                 async openPdfPreview() {
                     if (!this.codeCount) { this.showToast('Add at least one voucher code first.'); return; }
-                    if (this.isGenerating) return;
+                    if (this.isGenerating || this.isPreviewing) return;
 
-                    const { jsPDF } = window.jspdf;
-                    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-                    const pageW = 210, pageH = 297, marginX = 4, marginTop = 10, marginBottom = 10, gap = 1.5, cols = 4, rows = 10;
-                    const cardW = (pageW - marginX * 2 - gap * (cols - 1)) / cols;
-                    const cardH = (pageH - marginTop - marginBottom - gap * (rows - 1)) / rows;
-                    const perPage = cols * rows;
-                    const codes = this.codesList;
-                    let placed = 0;
+                    this.isPreviewing = true;
+                    try {
+                        const { jsPDF } = window.jspdf;
+                        const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+                        const pageW = 210, pageH = 297, marginX = 4, marginTop = 10, marginBottom = 10, gap = 1.5, cols = 4, rows = 10;
+                        const cardW = (pageW - marginX * 2 - gap * (cols - 1)) / cols;
+                        const cardH = (pageH - marginTop - marginBottom - gap * (rows - 1)) / rows;
+                        const perPage = cols * rows;
+                        const codes = this.codesList;
+                        let placed = 0;
 
-                    for (let i = 0; i < codes.length; i++) {
-                        const code = codes[i];
-                        let qr = null;
-                        try {
-                            qr = await qrToDataUrl(code, 260);
-                        } catch (e) { console.warn('QR preview failed:', code, e); }
-                        const idx = placed % perPage;
-                        if (placed > 0 && idx === 0) doc.addPage();
-                        const col = idx % cols, row = Math.floor(idx / cols);
-                        const x = margin + col * (cardW + gap);
-                        const y = margin + row * (cardH + gap);
-                        this.drawCard(doc, x, y, cardW, cardH, code, qr);
-                        placed++;
+                        for (let i = 0; i < codes.length; i++) {
+                            const code = codes[i];
+                            let qr = null;
+                            try {
+                                qr = await qrToDataUrl(code, 260);
+                            } catch (e) { console.warn('QR preview failed:', code, e); }
+                            const idx = placed % perPage;
+                            if (placed > 0 && idx === 0) doc.addPage();
+                            const col = idx % cols, row = Math.floor(idx / cols);
+                            const x = marginX + col * (cardW + gap);
+                            const y = marginTop + row * (cardH + gap);
+                            this.drawCard(doc, x, y, cardW, cardH, code, qr);
+                            placed++;
+                        }
+
+                        const pdfBlob = doc.output('blob');
+                        const url = URL.createObjectURL(pdfBlob);
+                        const newTab = window.open(url, '_blank');
+                        if (!newTab) {
+                            this.showToast('Popup blocked — allow popups to open the PDF preview.');
+                            URL.revokeObjectURL(url);
+                            return;
+                        }
+                        this.showToast('PDF preview opened in a new tab.');
+                    } catch (error) {
+                        console.error('PDF preview failed:', error);
+                        this.showToast(`Preview failed: ${error?.message || 'unknown error.'}`);
+                    } finally {
+                        this.isPreviewing = false;
                     }
-
-                    const pdfBlob = doc.output('blob');
-                    const url = URL.createObjectURL(pdfBlob);
-                    const newTab = window.open(url, '_blank');
-                    if (!newTab) {
-                        this.showToast('Popup blocked — allow popups to open the PDF preview.');
-                        URL.revokeObjectURL(url);
-                        return;
-                    }
-                    this.showToast('PDF preview opened in a new tab.');
                 },
+                isPreviewing: false,
                 isGenerating: false,
                 genProgress: 0,
                 async downloadPdf() {
@@ -521,9 +531,9 @@
                     try {
                         const { jsPDF } = window.jspdf;
                         const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-                        const pageW = 210, pageH = 297, margin = 4, gap = 1.5, cols = 5, rows = 11;
-                        const cardW = (pageW - margin * 2 - gap * (cols - 1)) / cols;
-                        const cardH = (pageH - margin * 2 - gap * (rows - 1)) / rows;
+                        const pageW = 210, pageH = 297, marginX = 4, marginTop = 10, marginBottom = 10, gap = 1.5, cols = 4, rows = 10;
+                        const cardW = (pageW - marginX * 2 - gap * (cols - 1)) / cols;
+                        const cardH = (pageH - marginTop - marginBottom - gap * (rows - 1)) / rows;
                         const perPage = cols * rows;
                         const codes = this.codesList;
                         let placed = 0;
@@ -540,8 +550,8 @@
                                 const idx = placed % perPage;
                                 if (placed > 0 && idx === 0) doc.addPage();
                                 const col = idx % cols, row = Math.floor(idx / cols);
-                                const x = margin + col * (cardW + gap);
-                                const y = margin + row * (cardH + gap);
+                                const x = marginX + col * (cardW + gap);
+                                const y = marginTop + row * (cardH + gap);
                                 this.drawCard(doc, x, y, cardW, cardH, code, qr);
                                 placed++;
                             } catch (cardErr) {

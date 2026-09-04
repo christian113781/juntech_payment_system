@@ -95,8 +95,8 @@ class Index extends Component
                 'contact_number' => $customer->contact_number ?? '',
                 'address' => $customer->address ?? '',
                 'monthly_price' => (float) $customer->monthly_price,
-                'billing_start_date' => $customer->billing_start_date?->format('Y-m-d') ?? '',
-                'billing_start_formatted' => $customer->billing_start_date ? $customer->billing_start_date->format('M d, Y') : '—',
+                'latest_billing_date' => $customer->latest_billing_date?->format('Y-m-d') ?? '',
+                'latest_billing_formatted' => $customer->latest_billing_date ? $customer->latest_billing_date->format('M d, Y') : '—',
                 'billing_cycle_days' => (int) $customer->billing_cycle_days,
                 'status' => ucfirst($customer->status ?? 'active'),
                 'remarks' => $customer->remarks ?? '',
@@ -110,8 +110,8 @@ class Index extends Component
             }
 
             if ($this->sortBy === 'due-asc') {
-                $aDate = $a['billing_start_date'] ?: '9999-12-31';
-                $bDate = $b['billing_start_date'] ?: '9999-12-31';
+                $aDate = $a['latest_billing_date'] ?: '9999-12-31';
+                $bDate = $b['latest_billing_date'] ?: '9999-12-31';
 
                 return strcmp($aDate, $bDate);
             }
@@ -166,7 +166,13 @@ class Index extends Component
         $this->contactNumber = (string) ($customer->contact_number ?? '');
         $this->address = $customer->address ?? '';
         $this->monthlyPrice = (string) $customer->monthly_price;
-        $this->billingStartDate = $customer->billing_start_date?->format('Y-m-d') ?? today()->toDateString();
+        $latestBilling = $customer->billings()
+            ->orderByDesc('period_start')
+            ->orderByDesc('id')
+            ->first();
+        $this->billingStartDate = $latestBilling?->period_start?->format('Y-m-d')
+            ?? $customer->latest_billing_date?->format('Y-m-d')
+            ?? today()->toDateString();
         $this->billingCycleDays = (string) ($customer->billing_cycle_days ?? 32);
         $this->status = $customer->status ?? 'active';
         $this->remarks = $customer->remarks ?? '';
@@ -211,7 +217,7 @@ class Index extends Component
             'contact_number' => trim($this->contactNumber) !== '' ? trim($this->contactNumber) : null,
             'address' => trim($this->address) !== '' ? trim($this->address) : null,
             'monthly_price' => (float) $this->monthlyPrice,
-            'billing_start_date' => $this->billingStartDate,
+            'latest_billing_date' => $this->billingStartDate,
             'billing_cycle_days' => (int) $this->billingCycleDays,
             'status' => $this->status,
             'remarks' => trim($this->remarks) !== '' ? trim($this->remarks) : null,
@@ -220,10 +226,10 @@ class Index extends Component
         if ($this->editingCustomerId) {
             $customer = Customer::findOrFail($this->editingCustomerId);
             $customer->update($payload);
-            $this->updateCurrentAndNextBillings(
+            $this->updateLatestBilling(
                 $customer,
                 (float) $payload['monthly_price'],
-                Carbon::parse($payload['billing_start_date']),
+                Carbon::parse($payload['latest_billing_date']),
                 (int) $payload['billing_cycle_days'],
             );
             session()->flash('success', 'Customer updated successfully.');
@@ -232,7 +238,7 @@ class Index extends Component
             $customer = Customer::create($payload);
 
             if ($customer->status === 'active') {
-                $start = \Illuminate\Support\Carbon::parse($customer->billing_start_date);
+                $start = \Illuminate\Support\Carbon::parse($customer->latest_billing_date);
                 $cycleDays = max(1, (int) $customer->billing_cycle_days);
                 $end = $start->copy()->addDays($cycleDays - 1);
 
@@ -257,7 +263,7 @@ class Index extends Component
         $this->loadCustomers();
     }
 
-    protected function updateCurrentAndNextBillings(
+    protected function updateLatestBilling(
         Customer $customer,
         float $monthlyPrice,
         Carbon $billingStartDate,
@@ -267,8 +273,9 @@ class Index extends Component
         $billings = $customer->billings()
             ->with('paymentAllocations')
             ->whereDate('period_end', '>=', today())
-            ->orderBy('period_start')
-            ->limit(2)
+            ->orderByDesc('period_start')
+            ->orderByDesc('id')
+            ->limit(1)
             ->get();
 
         foreach ($billings as $index => $billing) {

@@ -26,7 +26,7 @@ class BillingManagementTest extends TestCase
             'contact_number' => '09171234567',
             'address' => 'Sample address',
             'monthly_price' => 1000,
-            'billing_start_date' => '2026-09-02',
+            'latest_billing_date' => '2026-09-02',
             'billing_cycle_days' => 31,
             'status' => 'active',
         ]);
@@ -88,7 +88,7 @@ class BillingManagementTest extends TestCase
             'contact_number' => '09171234567',
             'address' => 'Sample address',
             'monthly_price' => 1000,
-            'billing_start_date' => '2026-09-02',
+            'latest_billing_date' => '2026-09-02',
             'billing_cycle_days' => 31,
             'status' => 'active',
         ]);
@@ -134,7 +134,7 @@ class BillingManagementTest extends TestCase
             'contact_number' => '09171234567',
             'address' => 'Sample address',
             'monthly_price' => 1000,
-            'billing_start_date' => '2026-09-02',
+            'latest_billing_date' => '2026-09-02',
             'billing_cycle_days' => 31,
             'status' => 'active',
         ]);

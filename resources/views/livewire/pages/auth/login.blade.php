@@ -169,16 +169,16 @@ new #[Layout('layouts.guest')] class extends Component
                 {{-- Submit --}}
                 <button type="submit"
                         class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm min-h-[44px]">
+                    <svg wire:loading wire:target="login" class="animate-spin w-4 h-4 shrink-0" fill="none"
+                        viewBox="0 0 24 24" aria-hidden="true">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                            stroke-width="4" />
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+
                     <span wire:loading.remove wire:target="login">{{ __('Sign In') }}</span>
-                    <span wire:loading wire:target="login" class="flex items-center gap-2">
-                        <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                            <circle class="opacity-25" cx="12" cy="12" r="10"
-                                    stroke="currentColor" stroke-width="4"/>
-                            <path class="opacity-75" fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        {{ __('Signing in…') }}
-                    </span>
+                    <span wire:loading wire:target="login">{{ __('Signing in…') }}</span>
                 </button>
             </form>
 

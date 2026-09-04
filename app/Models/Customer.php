@@ -18,14 +18,14 @@ class Customer extends Model
         'address',
         'remarks',
         'monthly_price',
-        'billing_start_date',
+        'latest_billing_date',
         'billing_cycle_days',
         'status',
     ];
 
     protected $casts = [
         'monthly_price' => 'decimal:2',
-        'billing_start_date' => 'date',
+        'latest_billing_date' => 'date',
         'billing_cycle_days' => 'integer',
     ];
 

@@ -171,7 +171,7 @@
                         </div>
 
                         <div>
-                            <label for="customer-start" class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-300">Billing Start Date <span class="text-red-500">*</span></label>
+                            <label for="customer-start" class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-300">Latest Blling Date <span class="text-red-500">*</span></label>
                             <input id="customer-start" type="date" wire:model="billingStartDate" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 outline-none transition-colors focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 @error('billingStartDate') border-red-300 bg-red-50 @enderror">
                             @error('billingStartDate')
                                 <p class="mt-1 text-xs text-red-500" role="alert">{{ $message }}</p>
@@ -288,7 +288,7 @@
                             <td class="px-5 py-3 text-gray-700 dark:text-gray-300">{{ $customer['area_name'] }}</td>
                             <td class="px-5 py-3 text-gray-700 dark:text-gray-300">{{ $customer['contact_number'] ?: 'No contact' }}</td>
                             <td class="px-5 py-3 text-end font-semibold text-gray-700 dark:text-gray-200">₱{{ number_format($customer['monthly_price'], 2) }}</td>
-                            <td class="px-5 py-3 text-gray-700 dark:text-gray-300">{{ $customer['billing_start_formatted'] }}</td>
+                            <td class="px-5 py-3 text-gray-700 dark:text-gray-300">{{ $customer['latest_billing_formatted'] }}</td>
                             <td class="max-w-xs px-5 py-3 text-gray-700 dark:text-gray-300" title="{{ $customer['remarks'] }}">
                                 <span class="block truncate">{{ $customer['remarks'] ?: 'No remarks' }}</span>
                             </td>
@@ -321,7 +321,14 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-5 py-10 text-center text-sm text-gray-400">No customers match your filters.</td>
+                            <td colspan="8" class="px-5 py-10 text-center text-sm text-gray-400">
+                                <div class="flex flex-col items-center justify-center gap-2">
+                                    <svg class="h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m7-8a4 4 0 100-8 4 4 0 000 8zm9-3v6m3-3h-6" />
+                                    </svg>
+                                    <span>No customers match your filters.</span>
+                                </div>
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>

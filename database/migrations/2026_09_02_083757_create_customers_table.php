@@ -25,8 +25,8 @@ return new class extends Migration
             // Fixed price assigned directly to this customer
             $table->decimal('monthly_price', 10, 2);
             
-            // First day of the customer's billing cycle
-            $table->date('billing_start_date');
+            // Latest day of the customer's billing cycle
+            $table->date('latest_billing_date');
 
             // Length of each billing cycle (e.g. 32 days)
             $table->unsignedInteger('billing_cycle_days')->default(31);
