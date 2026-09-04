@@ -203,11 +203,13 @@ class Index extends Component
 
             $paymentDate = Carbon::parse($this->payForm['date']);
             $billingCycleDays = max(1, (int) ($billing->customer->billing_cycle_days ?? 32));
+            $currentDueDate = $billing->due_date ? Carbon::parse($billing->due_date) : $paymentDate;
+            $nextBillingAnchor = $paymentDate->lte($currentDueDate) ? $currentDueDate : $paymentDate;
 
             for ($monthOffset = 1; $monthOffset <= $selectedMonths; $monthOffset++) {
                 $nextPeriodStart = $monthOffset === 1
-                    ? $paymentDate->copy()
-                    : $paymentDate->copy()->addDays($billingCycleDays * ($monthOffset - 1) + 1);
+                    ? $nextBillingAnchor->copy()
+                    : $nextBillingAnchor->copy()->addDays($billingCycleDays * ($monthOffset - 1) + 1);
                 $nextPeriodEnd = $nextPeriodStart->copy()->addDays($billingCycleDays);
                 $nextDueDate = $nextPeriodEnd->copy();
 
@@ -358,7 +360,7 @@ class Index extends Component
             })->all();
 
         $filteredBillings = array_values(array_filter($billings, function (array $billing) {
-            if ($billing['customer_status'] === 'disconnected' && $billing['balance'] <= 0) {
+            if ($billing['customer_status'] === 'disconnected') {
                 return false;
             }
 
@@ -464,10 +466,6 @@ class Index extends Component
             return 'Partial';
         }
 
-        if ($status === 'overdue') {
-            return 'Overdue';
-        }
-
         if (! $dueDate) {
             return 'Due';
         }
@@ -476,14 +474,14 @@ class Index extends Component
         $today = Carbon::today();
 
         if ($due->lt($today)) {
-            return 'Overdue';
+            return $today->diffInDays($due) . 'd overdue';
         }
 
         if ($due->equalTo($today)) {
             return 'Due';
         }
 
-        return 'On Time';
+        return $today->diffInDays($due) . 'd on time';
     }
 
     protected function getAllocationAmountForEdit(int $paymentId, int $billingId): float

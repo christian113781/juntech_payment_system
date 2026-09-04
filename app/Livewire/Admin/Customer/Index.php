@@ -6,6 +6,7 @@ use App\Models\Area;
 use App\Models\Billing;
 use App\Models\Customer;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -319,7 +320,18 @@ class Index extends Component
         $customer = Customer::find($this->deletingCustomerId);
 
         if ($customer) {
-            $customer->delete();
+            DB::transaction(function () use ($customer): void {
+                $billingIds = $customer->billings()->pluck('id');
+
+                if ($billingIds->isNotEmpty()) {
+                    \App\Models\PaymentAllocation::whereIn('billing_id', $billingIds)->delete();
+                }
+
+                $customer->payments()->delete();
+                $customer->billings()->delete();
+                $customer->delete();
+            });
+
             session()->flash('success', 'Customer deleted successfully.');
             $this->dispatch('toast', message: 'Customer deleted successfully.');
         }
