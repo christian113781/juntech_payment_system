@@ -155,10 +155,6 @@
                 <label for="payroll-period-end" class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-300">Period End</label>
                 <input id="payroll-period-end" type="date" class="field" x-model="periodEnd">
             </div>
-            <div>
-                <label for="overtime-multiplier" class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-300">Overtime Multiplier</label>
-                <input id="overtime-multiplier" type="number" min="1" step="0.05" class="field" x-model.number="otMultiplier">
-            </div>
         </div>
 
         <div class="mt-4 flex justify-end" x-show="rows.length > 0">
@@ -273,16 +269,30 @@
             </div>
         </div>
 
+        <div class="grid gap-4 border-b border-gray-100 p-5 dark:border-gray-700 md:grid-cols-3">
+            <div>
+                <label for="payroll-basis" class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-300">Payroll Basis</label>
+                <select id="payroll-basis" x-model="payBasis" class="field">
+                    <option value="fixed">Fixed Base</option>
+                    <option value="time">Time Base (late / early out)</option>
+                </select>
+            </div>
+            <div class="md:col-span-2 flex items-start pt-1 md:items-center md:pt-6 md:pl-2">
+                <p class="text-xs text-gray-500 dark:text-gray-400" x-show="payBasis === 'fixed'">Basic pay uses the daily rate multiplied by days worked.</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 md:whitespace-nowrap" x-show="payBasis === 'time'">Time base uses an 8-hour day. Late arrival and early checkout are deducted at the hourly rate. Schedule: 8:30 AM–5:30 PM.</p>
+            </div>
+        </div>
+
         <div class="tbl-wrap" tabindex="0" role="region">
             <table class="w-full text-sm" style="min-inline-size: 84rem;">
                 <thead>
                     <tr class="border-b border-gray-100 text-left dark:border-gray-700">
                         <th class="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">Employee</th>
                         <th class="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400 text-end">Days</th>
-                        <th class="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400 text-end">OT (hrs)</th>
                         <th class="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400 text-end">Daily Rate</th>
+                        <th class="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400 text-end" x-show="payBasis === 'time'">Hourly Rate</th>
+                        <th class="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400 text-end" x-show="payBasis === 'time'">Time Deduction</th>
                         <th class="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400 text-end">Basic</th>
-                        <th class="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400 text-end">OT Pay</th>
                         <th class="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400 text-end">Other +</th>
                         <th class="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400 text-end">Other −</th>
                         <th class="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400 text-end">Cash Adv.</th>
@@ -298,13 +308,13 @@
                                 <p class="text-[11px] text-amber-600" x-show="!row.matched">Not in rate book — set rate</p>
                             </td>
                             <td class="px-4 py-2.5 text-end text-gray-600 dark:text-gray-300" x-text="row.daysWorked"></td>
-                            <td class="px-4 py-2.5 text-end text-gray-600 dark:text-gray-300" x-text="row.overtimeHours"></td>
                             <td class="px-4 py-2.5 text-end">
                                 <input type="number" min="0" step="0.01" class="field !min-h-0 !w-24 !py-1.5 text-end no-print" x-model.number="row.dailyRate" :disabled="viewingHistoryId">
                                 <span class="hidden print:inline" x-text="money(row.dailyRate)"></span>
                             </td>
+                            <td class="px-4 py-2.5 text-end text-gray-600 dark:text-gray-300" x-show="payBasis === 'time'" x-text="money(hourlyRate(row))"></td>
+                            <td class="px-4 py-2.5 text-end text-red-600 dark:text-red-400" x-show="payBasis === 'time'" x-text="money(timeDeduction(row))"></td>
                             <td class="px-4 py-2.5 text-end text-gray-700 dark:text-gray-200" x-text="money(basicSalary(row))"></td>
-                            <td class="px-4 py-2.5 text-end text-gray-700 dark:text-gray-200" x-text="money(overtimeAmount(row))"></td>
                             <td class="px-4 py-2.5 text-end">
                                 <input type="number" min="0" step="0.01" class="field !min-h-0 !w-24 !py-1.5 text-end no-print" x-model.number="row.otherEarnings" :disabled="viewingHistoryId">
                                 <span class="hidden print:inline" x-text="money(row.otherEarnings)"></span>
@@ -330,9 +340,8 @@
                 </tbody>
                 <tfoot>
                     <tr class="border-t border-gray-100 bg-gray-50/60 font-bold text-gray-900 dark:border-gray-700 dark:bg-gray-900/40 dark:text-white">
-                        <td class="px-4 py-3" colspan="4">Totals</td>
+                        <td class="px-4 py-3" :colspan="payBasis === 'time' ? 5 : 3">Totals</td>
                         <td class="px-4 py-3 text-end" x-text="money(rows.reduce((sum, row) => sum + basicSalary(row), 0))"></td>
-                        <td class="px-4 py-3 text-end" x-text="money(rows.reduce((sum, row) => sum + overtimeAmount(row), 0))"></td>
                         <td class="px-4 py-3 text-end" colspan="3"></td>
                         <td class="px-4 py-3 text-end" x-text="money(totalNet)"></td>
                         <td class="no-print"></td>
@@ -517,11 +526,10 @@
                     <tr class="border-b-2 border-gray-800 text-left">
                         <th class="p-1">Employee</th>
                         <th class="p-1 text-right">Days</th>
-                        <th class="p-1 text-right">OT</th>
                         <th class="p-1 text-right">Rate</th>
                         <th class="p-1 text-right">Basic</th>
-                        <th class="p-1 text-right">OT Pay</th>
-                        <th class="p-1 text-right">Deductions</th>
+                        <th class="p-1 text-right" x-show="payBasis === 'time'">Time Deduction</th>
+                        <th class="p-1 text-right">Other Deductions</th>
                         <th class="p-1 text-right">Net Pay</th>
                     </tr>
                 </thead>
@@ -530,18 +538,17 @@
                         <tr class="border-b border-gray-200">
                             <td class="p-1" x-text="row.name"></td>
                             <td class="p-1 text-right" x-text="row.daysWorked"></td>
-                            <td class="p-1 text-right" x-text="row.overtimeHours"></td>
                             <td class="p-1 text-right" x-text="money(row.dailyRate)"></td>
                             <td class="p-1 text-right" x-text="money(basicSalary(row))"></td>
-                            <td class="p-1 text-right" x-text="money(overtimeAmount(row))"></td>
-                            <td class="p-1 text-right" x-text="money(totalDeductions(row))"></td>
+                            <td class="p-1 text-right" x-show="payBasis === 'time'" x-text="money(timeDeduction(row))"></td>
+                            <td class="p-1 text-right" x-text="money(Number(row.otherDeductions || 0) + Number(row.cashAdvance || 0))"></td>
                             <td class="p-1 text-right font-bold" x-text="money(netSalary(row))"></td>
                         </tr>
                     </template>
                 </tbody>
                 <tfoot>
                     <tr class="border-t-2 border-gray-800 font-bold">
-                        <td class="p-2" colspan="7">Total Net Pay</td>
+                        <td class="p-2" :colspan="payBasis === 'time' ? 6 : 5">Total Net Pay</td>
                         <td class="p-2 text-right" x-text="money(totalNet)"></td>
                     </tr>
                 </tfoot>
@@ -577,9 +584,9 @@
             <table class="mt-4 w-full border-collapse text-sm">
                 <tr class="border-b border-gray-200"><td class="py-2">Days Worked</td><td class="py-2 text-right" x-text="printRow.daysWorked"></td></tr>
                 <tr class="border-b border-gray-200"><td class="py-2">Basic Pay</td><td class="py-2 text-right" x-text="money(basicSalary(printRow))"></td></tr>
-                <tr class="border-b border-gray-200"><td class="py-2">Overtime (<span x-text="printRow.overtimeHours"></span> hrs)</td><td class="py-2 text-right" x-text="money(overtimeAmount(printRow))"></td></tr>
                 <tr class="border-b border-gray-200"><td class="py-2">Other Earnings</td><td class="py-2 text-right" x-text="money(printRow.otherEarnings)"></td></tr>
                 <tr class="border-b border-gray-800 font-bold"><td class="py-2">Gross Pay</td><td class="py-2 text-right" x-text="money(grossSalary(printRow))"></td></tr>
+                <tr class="border-b border-gray-200" x-show="payBasis === 'time'"><td class="py-2">Time Deduction</td><td class="py-2 text-right" x-text="money(timeDeduction(printRow))"></td></tr>
                 <tr class="border-b border-gray-200"><td class="py-2">Other Deductions</td><td class="py-2 text-right" x-text="money(printRow.otherDeductions)"></td></tr>
                 <tr class="border-b border-gray-800"><td class="py-2">Cash Advance</td><td class="py-2 text-right" x-text="money(printRow.cashAdvance)"></td></tr>
                 <tr class="font-bold text-base"><td class="py-3">Net Pay</td><td class="py-3 text-right" x-text="money(netSalary(printRow))"></td></tr>
@@ -610,7 +617,7 @@
             history: [],
             viewingHistoryId: null,
             showRates: false,
-            otMultiplier: 1.25,
+            payBasis: 'fixed',
             printMode: null,
             printRow: null,
 
@@ -859,11 +866,11 @@
                         return this.makeDraftRow({
                             name,
                             daysWorked: stats.daysWorked,
-                            overtimeHours: 0,
                             otherEarnings: 0,
                             otherDeductions: 0,
                             cashAdvance: 0,
-                            lateMinutes: 0,
+                            lateMinutes: stats.lateMinutes,
+                            earlyOutMinutes: stats.earlyOutMinutes,
                         });
                     });
 
@@ -884,11 +891,11 @@
                         return this.makeDraftRow({
                             name,
                             daysWorked: stats.daysWorked,
-                            overtimeHours: 0,
                             otherEarnings: 0,
                             otherDeductions: 0,
                             cashAdvance: 0,
-                            lateMinutes: 0,
+                            lateMinutes: stats.lateMinutes,
+                            earlyOutMinutes: stats.earlyOutMinutes,
                         });
                     });
                     this.syncImportedEmployees();
@@ -1063,7 +1070,6 @@
                     employees.push({
                         name,
                         daysWorked: Number(String(row[11] || '0/0').split('/')[1] || 0),
-                        overtimeHours: this.parseClockValue(row[9]) + this.parseClockValue(row[10]),
                         lateMinutes: Number(row[6] || 0),
                         absentDays: Number(row[13] || 0),
                     });
@@ -1119,14 +1125,14 @@
                 const employee = this.employees.find(item => item.name.toUpperCase() === String(data.name).trim().toUpperCase()) || null;
                 const dailyRate = Number(employee?.dailyRate || 0);
                 const daysWorked = Number(data.daysWorked || 0);
-                const overtimeHours = Number(data.overtimeHours || 0);
                 const otherEarnings = Number(data.otherEarnings || 0);
                 const otherDeductions = Number(data.otherDeductions || 0);
                 const cashAdvance = Number(data.cashAdvance || 0);
+                const lateMinutes = Number(data.lateMinutes || 0);
+                const earlyOutMinutes = Number(data.earlyOutMinutes || 0);
 
                 const basic = dailyRate * daysWorked;
-                const overtimeAmount = overtimeHours * dailyRate * this.otMultiplier;
-                const gross = basic + overtimeAmount + otherEarnings;
+                const gross = basic + otherEarnings;
                 const net = gross - otherDeductions - cashAdvance;
 
                 return {
@@ -1135,12 +1141,14 @@
                     position: employee?.role || '',
                     dailyRate,
                     daysWorked,
-                    overtimeHours,
+                    overtimeHours: 0,
                     otherEarnings,
                     otherDeductions,
                     cashAdvance,
+                    lateMinutes,
+                    earlyOutMinutes,
                     basicSalary: basic,
-                    overtimeAmount,
+                    overtimeAmount: 0,
                     grossSalary: gross,
                     netSalary: net,
                     matched: !!employee,
@@ -1152,6 +1160,8 @@
                 const entries = key ? (this.attendanceGrid[key] || []) : [];
                 let workedDays = 0;
                 let absentDays = 0;
+                let lateMinutes = 0;
+                let earlyOutMinutes = 0;
 
                 entries.forEach(entry => {
                     const hasIn = entry && entry.in && entry.in !== 'Absent';
@@ -1161,14 +1171,36 @@
                     } else {
                         absentDays += 1;
                     }
+
+                    const inMinutes = this.timeToMinutes(entry?.in);
+                    const outMinutes = this.timeToMinutes(entry?.out);
+                    if (outMinutes !== null) {
+                        if (inMinutes !== null) lateMinutes += Math.max(0, inMinutes - (8 * 60 + 30));
+                        earlyOutMinutes += Math.max(0, (17 * 60 + 30) - outMinutes);
+                    }
                 });
 
                 return {
                     daysWorked: workedDays,
                     overtimeHours: 0,
-                    lateMinutes: 0,
+                    lateMinutes,
+                    earlyOutMinutes,
                     absentDays,
                 };
+            },
+
+            timeToMinutes(value) {
+                if (!value || value === 'Absent') return null;
+                const match = String(value).trim().match(/^(\d{1,2}):(\d{2})(?:\s*([AP]M))?$/i);
+                if (!match) return null;
+                let hours = Number(match[1]);
+                const minutes = Number(match[2]);
+                const meridiem = match[3]?.toUpperCase();
+                if (meridiem) {
+                    if (hours === 12) hours = 0;
+                    if (meridiem === 'PM') hours += 12;
+                }
+                return hours * 60 + minutes;
             },
 
             gridKeyFor(name) {
@@ -1180,16 +1212,21 @@
                 return Number(row.dailyRate || 0) * Number(row.daysWorked || 0);
             },
 
-            overtimeAmount(row) {
-                return Number(row.overtimeHours || 0) * Number(row.dailyRate || 0) * this.otMultiplier;
+            hourlyRate(row) {
+                return Number(row.dailyRate || 0) / 8;
+            },
+
+            timeDeduction(row) {
+                if (this.payBasis !== 'time') return 0;
+                return (Number(row.lateMinutes || 0) + Number(row.earlyOutMinutes || 0)) / 60 * this.hourlyRate(row);
             },
 
             grossSalary(row) {
-                return this.basicSalary(row) + this.overtimeAmount(row) + Number(row.otherEarnings || 0);
+                return this.basicSalary(row) + Number(row.otherEarnings || 0);
             },
 
             deductionAmount(row) {
-                return Number(row.otherDeductions || 0) + Number(row.cashAdvance || 0);
+                return Number(row.otherDeductions || 0) + Number(row.cashAdvance || 0) + this.timeDeduction(row);
             },
 
             netSalary(row) {
@@ -1238,6 +1275,7 @@
                 const payload = {
                     period_start: this.periodStart,
                     period_end: this.periodEnd,
+                    pay_basis: this.payBasis,
                     attendance_file: this.fileName || 'manual-import',
                     generated_at: new Date().toLocaleString('sv-SE', { hour12: false }).replace(' ', ' '),
                     attendance: {
@@ -1247,10 +1285,15 @@
                         attendanceDates: [...this.attendanceDates],
                         attendanceEmployees: [...this.attendanceEmployees],
                         attendanceGrid: JSON.parse(JSON.stringify(this.attendanceGrid || {})),
+                        payBasis: this.payBasis,
+                        rows: this.rows.map(row => ({
+                            name: row.name,
+                            lateMinutes: Number(row.lateMinutes || 0),
+                            earlyOutMinutes: Number(row.earlyOutMinutes || 0),
+                        })),
                     },
                     rows: this.rows.map(row => {
                         const basicSalary = this.basicSalary(row);
-                        const overtimeAmount = this.overtimeAmount(row);
                         const grossSalary = this.grossSalary(row);
                         const netSalary = this.netSalary(row);
 
@@ -1260,12 +1303,14 @@
                             position: row.position,
                             dailyRate: Number(row.dailyRate || 0),
                             daysWorked: Number(row.daysWorked || 0),
-                            overtimeHours: Number(row.overtimeHours || 0),
+                            overtimeHours: 0,
                             otherEarnings: Number(row.otherEarnings || 0),
                             otherDeductions: Number(row.otherDeductions || 0),
                             cashAdvance: Number(row.cashAdvance || 0),
+                            lateMinutes: Number(row.lateMinutes || 0),
+                            earlyOutMinutes: Number(row.earlyOutMinutes || 0),
                             basicSalary,
-                            overtimeAmount,
+                            overtimeAmount: 0,
                             grossSalary,
                             netSalary,
                         };
@@ -1302,6 +1347,7 @@
                 this.periodStart = run.periodStart || (run.attendance && run.attendance.periodStart) || '';
                 this.periodEnd = run.periodEnd || (run.attendance && run.attendance.periodEnd) || '';
                 this.fileName = run.attendanceFile || (run.attendance && run.attendance.attendanceFile) || 'manual-import';
+                this.payBasis = run.payBasis || run.pay_basis || run.attendance?.payBasis || 'fixed';
 
                 const attendance = run.attendance || {};
                 this.attendanceDates = Array.isArray(attendance.attendanceDates) ? attendance.attendanceDates : [];
@@ -1315,6 +1361,8 @@
                     overtimeAmount: Number(row.overtimeAmount || 0),
                     grossSalary: Number(row.grossSalary || 0),
                     netSalary: Number(row.netSalary || 0),
+                    lateMinutes: Number(row.lateMinutes || 0),
+                    earlyOutMinutes: Number(row.earlyOutMinutes || 0),
                 }));
                 this.selectedEmployee = this.attendanceEmployees.length ? '__ALL__' : '__ALL__';
             },

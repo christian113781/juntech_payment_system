@@ -32,6 +32,7 @@ class PayrollHistoryController
             'period_end' => ['required', 'string'],
             'attendance_file' => ['nullable', 'string'],
             'generated_at' => ['nullable', 'string'],
+            'pay_basis' => ['nullable', 'in:fixed,time'],
             'attendance' => ['nullable', 'array'],
             'rows' => ['required', 'array'],
         ]);
@@ -45,6 +46,8 @@ class PayrollHistoryController
             'attendanceGrid' => [],
             'rows' => $validated['rows'],
         ];
+        $attendanceData['payBasis'] = $validated['pay_basis'] ?? 'fixed';
+        $attendanceData['rows'] = $validated['rows'];
 
         $run = PayrollRun::query()->create([
             'period_start' => $validated['period_start'],
@@ -63,6 +66,7 @@ class PayrollHistoryController
             'attendanceFile' => $run->attendance_file_original_name,
             'generatedAt' => $run->generated_at->format('Y-m-d H:i:s'),
             'attendance' => $attendanceData,
+            'payBasis' => $attendanceData['payBasis'] ?? 'fixed',
             'rows' => $validated['rows'],
         ];
 
@@ -123,9 +127,11 @@ class PayrollHistoryController
 
     private function serializeRun(PayrollRun $run): array
     {
-        $rows = $run->payrolls->map(function (Payroll $payroll) {
+        $rows = $run->payrolls->map(function (Payroll $payroll) use ($run) {
             $employee = $payroll->employee;
             $name = $employee?->name ?? 'Unknown';
+            $snapshot = collect($run->attendance_data['rows'] ?? [])
+                ->first(fn (array $row) => strcasecmp((string) ($row['name'] ?? ''), $name) === 0) ?? [];
 
             return [
                 'id' => $payroll->id,
@@ -142,6 +148,8 @@ class PayrollHistoryController
                 'overtimeAmount' => (float) ($payroll->overtime_amount ?? 0),
                 'grossSalary' => (float) ($payroll->gross_salary ?? 0),
                 'netSalary' => (float) ($payroll->net_salary ?? 0),
+                'lateMinutes' => (float) ($snapshot['lateMinutes'] ?? 0),
+                'earlyOutMinutes' => (float) ($snapshot['earlyOutMinutes'] ?? 0),
             ];
         })->values()->all();
 
@@ -151,6 +159,7 @@ class PayrollHistoryController
             'periodEnd' => $run->period_end?->format('Y-m-d') ?? '',
             'attendanceFile' => $run->attendance_file_original_name ?? $run->attendance_file ?? 'manual-import',
             'generatedAt' => $run->generated_at?->format('Y-m-d H:i:s') ?? '',
+            'payBasis' => $run->attendance_data['payBasis'] ?? 'fixed',
             'attendance' => $run->attendance_data ?? [
                 'periodStart' => $run->period_start?->format('Y-m-d') ?? '',
                 'periodEnd' => $run->period_end?->format('Y-m-d') ?? '',
