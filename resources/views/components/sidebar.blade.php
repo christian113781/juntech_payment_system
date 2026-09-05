@@ -283,7 +283,7 @@
                       {{ request()->routeIs('expenses.*') ? 'text-brand-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white' }}"
                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M3 21h18M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16M8 7h2m4 0h2M8 11h2m4 0h2M8 15h2m4 0h2M10 21v-3h4v3" />
+                          d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7zm0 2h18m-5 4h2" />
                     </svg>
                     <span class="nav-label truncate">Expenses</span>
                 </a>
@@ -296,6 +296,22 @@
             class="nav-section-label px-3 mb-2 mt-4 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
             Account
         </p>
+
+
+        <li>
+                <a href="{{ route('accounts.index') }}"
+                    class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors
+                  {{ request()->routeIs('accounts.*') ? 'bg-brand-50 text-brand-700 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700' }}"
+                    @if (request()->routeIs('accounts.*')) aria-current="page" @endif>
+                    <svg class="w-5 h-5 flex-shrink-0 transition duration-75
+                      {{ request()->routeIs('accounts.*') ? 'text-brand-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white' }}"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 21h18M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16M8 7h2m4 0h2M8 11h2m4 0h2M8 15h2m4 0h2M10 21v-3h4v3" />
+                    </svg>
+                    <span class="nav-label truncate">Accounts</span>
+                </a>
+            </li>
 
 
     </nav>

@@ -46,6 +46,9 @@ use App\Livewire\Admin\Billing\Index as BillingsIndex;
 use App\Livewire\Admin\Customer\Index as CustomersIndex;
 use App\Livewire\Admin\CustomerDetail\Index as CustomerDetailsIndex;
 
+// Accounts
+use App\Livewire\Admin\Account\Index as AccountsIndex;
+
 Route::view('/', 'welcome');
 
 
@@ -88,6 +91,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/billings', BillingsIndex::class)->name('billings.index');
     Route::get('/customers', CustomersIndex::class)->name('customers.index');
     Route::get('/customers/{customer}/details', CustomerDetailsIndex::class)->name('customer-details.index');
+    Route::get('/accounts', AccountsIndex::class)->name('accounts.index');
 });
 
 
