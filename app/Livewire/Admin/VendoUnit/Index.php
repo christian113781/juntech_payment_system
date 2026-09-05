@@ -4,6 +4,7 @@ namespace App\Livewire\Admin\VendoUnit;
 
 use App\Models\VendoPartner;
 use App\Models\VendoUnit;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -34,6 +35,8 @@ class Index extends Component
 
     public bool $showAssignModal = false;
 
+    public bool $showBulkCreateModal = false;
+
     public ?int $editingUnitId = null;
 
     public ?int $viewingUnitId = null;
@@ -53,6 +56,16 @@ class Index extends Component
     public string $unitDescription = '';
 
     public string $unitConditionNotes = '';
+
+    public array $bulkUnits = [];
+
+    public string $bulkNamePrefix = '';
+
+    public string $bulkKeyPrefix = '';
+
+    public string $bulkStartNumber = '001';
+
+    public int $bulkQuantity = 1;
 
     public function mount(): void
     {
@@ -116,6 +129,89 @@ class Index extends Component
     {
         $this->resetForm();
         $this->showCreateModal = true;
+    }
+
+    public function openBulkCreateModal(): void
+    {
+        $this->bulkUnits = [];
+        $this->bulkNamePrefix = '';
+        $this->bulkKeyPrefix = '';
+        $this->bulkStartNumber = '001';
+        $this->bulkQuantity = 1;
+        $this->resetValidation();
+        $this->showBulkCreateModal = true;
+    }
+
+    public function closeBulkCreateModal(): void
+    {
+        $this->showBulkCreateModal = false;
+        $this->bulkUnits = [];
+        $this->bulkNamePrefix = '';
+        $this->bulkKeyPrefix = '';
+        $this->bulkStartNumber = '001';
+        $this->bulkQuantity = 1;
+        $this->resetValidation();
+    }
+
+    public function generateBulkUnits(): void
+    {
+        $this->validate([
+            'bulkNamePrefix' => ['required', 'string', 'max:240'],
+            'bulkKeyPrefix' => ['required', 'string', 'max:240'],
+            'bulkStartNumber' => ['required', 'regex:/^\d{1,9}$/'],
+            'bulkQuantity' => ['required', 'integer', 'min:1', 'max:500'],
+        ]);
+
+        $numberWidth = strlen($this->bulkStartNumber);
+        $startNumber = (int) $this->bulkStartNumber;
+        $this->bulkUnits = collect(range($startNumber, $startNumber + $this->bulkQuantity - 1))
+            ->map(fn (int $number) => [
+                'name' => trim($this->bulkNamePrefix) . str_pad((string) $number, $numberWidth, '0', STR_PAD_LEFT),
+                'key' => trim($this->bulkKeyPrefix) . str_pad((string) $number, $numberWidth, '0', STR_PAD_LEFT),
+            ])
+            ->all();
+        $this->resetValidation();
+    }
+
+    public function addBulkUnitRow(): void
+    {
+        $this->bulkUnits[] = ['name' => '', 'key' => ''];
+    }
+
+    public function removeBulkUnitRow(int $index): void
+    {
+        if (count($this->bulkUnits) <= 1) {
+            return;
+        }
+
+        unset($this->bulkUnits[$index]);
+        $this->bulkUnits = array_values($this->bulkUnits);
+    }
+
+    public function saveBulkUnits(): void
+    {
+        $this->validate([
+            'bulkUnits' => ['required', 'array', 'min:1'],
+            'bulkUnits.*.name' => ['required', 'string', 'max:255', 'distinct', 'unique:vendo_units,name'],
+            'bulkUnits.*.key' => ['required', 'string', 'max:255', 'distinct', 'unique:vendo_units,key'],
+        ]);
+
+        DB::transaction(function (): void {
+            foreach ($this->bulkUnits as $bulkUnit) {
+                VendoUnit::create([
+                    'name' => trim($bulkUnit['name']),
+                    'key' => trim($bulkUnit['key']),
+                    'status' => 'ready',
+                ]);
+            }
+        });
+
+        $count = count($this->bulkUnits);
+        $message = $count . ' vendo unit' . ($count === 1 ? '' : 's') . ' added successfully.';
+        session()->flash('success', $message);
+        $this->dispatch('toast', message: $message);
+        $this->closeBulkCreateModal();
+        $this->loadUnits();
     }
 
     public function closeCreateModal(): void

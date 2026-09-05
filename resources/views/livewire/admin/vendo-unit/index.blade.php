@@ -7,13 +7,22 @@
             </p>
         </div>
 
-        <button type="button" wire:click="openCreateModal()"
-            class="flex min-h-[44px] items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Unit
-        </button>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+            <button type="button" wire:click="openCreateModal()"
+                class="flex min-h-[44px] items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Unit
+            </button>
+            <button type="button" wire:click="openBulkCreateModal()"
+                class="flex min-h-[44px] items-center gap-2 rounded-xl border border-brand-200 bg-white px-4 py-2.5 text-sm font-semibold text-brand-700 shadow-sm transition-colors hover:bg-brand-50 dark:border-brand-700 dark:bg-gray-800 dark:text-brand-300 dark:hover:bg-gray-700">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10" />
+                </svg>
+                Bulk Add Units
+            </button>
+        </div>
     </div>
 
     <section aria-label="Vendo unit summary">
@@ -145,6 +154,63 @@
                     </button>
                     <button type="button" wire:click="saveUnit()" class="min-h-[44px] rounded-xl bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 shadow-sm">
                         {{ $showEditModal ? 'Save Changes' : 'Add Vendo Unit' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if ($showBulkCreateModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/55 p-4">
+            <div class="w-full max-w-2xl overflow-y-auto rounded-[1.25rem] bg-white shadow-card dark:bg-gray-800" style="max-block-size:min(90dvh,42rem)">
+                <div class="sticky top-0 z-10 flex items-center justify-between rounded-t-[1.25rem] border-b border-gray-100 bg-white px-6 py-5 dark:border-gray-700 dark:bg-gray-800">
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Bulk Add Vendo Units</h2>
+                        <p class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">Add multiple ready units using only their name and key.</p>
+                    </div>
+                    <button type="button" wire:click="closeBulkCreateModal()" class="rounded-xl p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" aria-label="Close dialog">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <div class="space-y-3 px-6 py-5">
+                    <div class="rounded-xl bg-gray-50 p-4 dark:bg-gray-900/40">
+                        <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Generate a range</p>
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div>
+                                <label for="bulk-name-prefix" class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-300">Name Prefix</label>
+                                <input id="bulk-name-prefix" type="text" wire:model="bulkNamePrefix" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100" placeholder="VENDO-">
+                            </div>
+                            <div>
+                                <label for="bulk-key-prefix" class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-300">Key Prefix</label>
+                                <input id="bulk-key-prefix" type="text" wire:model="bulkKeyPrefix" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100" placeholder="KEY-">
+                            </div>
+                            <div>
+                                <label for="bulk-start-number" class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-300">Start Number</label>
+                                <input id="bulk-start-number" type="text" wire:model="bulkStartNumber" inputmode="numeric" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100" placeholder="001">
+                            </div>
+                            <div>
+                                <label for="bulk-quantity" class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-300">How Many</label>
+                                <input id="bulk-quantity" type="number" wire:model="bulkQuantity" min="1" max="500" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100" placeholder="20">
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (count($bulkUnits) > 0)
+                        <p class="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+                            {{ count($bulkUnits) }} unit(s) generated and ready to add.
+                        </p>
+                    @else
+                        <p class="rounded-xl bg-gray-50 p-3 text-xs text-gray-500 dark:bg-gray-900/40 dark:text-gray-400">
+                            Enter the range details, then generate the units before saving.
+                        </p>
+                    @endif
+                </div>
+
+                <div class="sticky bottom-0 flex items-center justify-end gap-3 rounded-b-[1.25rem] border-t border-gray-100 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-800">
+                    <button type="button" wire:click="closeBulkCreateModal()" class="min-h-[44px] rounded-xl px-5 py-2.5 text-sm font-semibold text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
+                    <button type="button" wire:click="{{ count($bulkUnits) > 0 ? 'saveBulkUnits' : 'generateBulkUnits' }}()" class="min-h-[44px] rounded-xl bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700">
+                        {{ count($bulkUnits) > 0 ? 'Add Units' : 'Generate Units' }}
                     </button>
                 </div>
             </div>

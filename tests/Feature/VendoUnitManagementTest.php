@@ -67,4 +67,24 @@ class VendoUnitManagementTest extends TestCase
             'name' => 'VM-02',
         ]);
     }
+
+    public function test_vendo_units_can_be_added_in_bulk(): void
+    {
+        Livewire::test(Index::class)
+            ->call('openBulkCreateModal')
+            ->set('bulkNamePrefix', 'VM-')
+            ->set('bulkKeyPrefix', 'KBLUE-')
+            ->set('bulkStartNumber', '03')
+            ->set('bulkQuantity', 2)
+            ->call('generateBulkUnits')
+            ->assertHasNoErrors()
+            ->assertSet('bulkUnits.0.name', 'VM-03')
+            ->assertSet('bulkUnits.0.key', 'KBLUE-03')
+            ->call('saveBulkUnits')
+            ->assertHasNoErrors()
+            ->assertSet('showBulkCreateModal', false);
+
+        $this->assertDatabaseHas('vendo_units', ['name' => 'VM-03', 'key' => 'KBLUE-03', 'status' => 'ready']);
+        $this->assertDatabaseHas('vendo_units', ['name' => 'VM-04', 'key' => 'KBLUE-04', 'status' => 'ready']);
+    }
 }

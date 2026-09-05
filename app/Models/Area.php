@@ -16,4 +16,14 @@ class Area extends Model
     {
         return $this->hasMany(Customer::class);
     }
+
+    public function omadaPartners(): HasMany
+    {
+        return $this->hasMany(OmadaPartner::class);
+    }
+
+    public function vendoPartners(): HasMany
+    {
+        return $this->hasMany(VendoPartner::class);
+    }
 }

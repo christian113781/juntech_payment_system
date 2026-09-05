@@ -149,9 +149,18 @@ class Index extends Component
             return;
         }
 
-        $area = Area::find($this->deleteAreaId);
+        $area = Area::withCount(['customers', 'omadaPartners', 'vendoPartners'])
+            ->find($this->deleteAreaId);
 
         if ($area) {
+            if ($area->customers_count > 0 || $area->omada_partners_count > 0 || $area->vendo_partners_count > 0) {
+                $message = 'This area cannot be deleted because it is still assigned to customers or partners.';
+                session()->flash('error', $message);
+                $this->dispatch('toast', message: $message);
+                $this->deleteAreaId = null;
+                return;
+            }
+
             $area->delete();
             session()->flash('success', 'Area deleted successfully.');
             $this->dispatch('toast', message: 'Area deleted successfully.');
